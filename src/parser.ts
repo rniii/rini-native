@@ -1,10 +1,11 @@
-import { createBitfieldParser, fromEntries, lazyPromise, parseBitfield, toBigInt } from "@/utils";
+import { fromEntries, lazyPromise, toBigInt } from "@/utils";
 import type { FileHandle } from "fs/promises";
 import {
   functionSourceEntry,
   identifierHash,
   largeFunctionHeader,
   offsetLengthPair,
+  pointerFunctionHeader,
   smallFunctionHeader,
   stringKind,
   stringTableEntry,
@@ -208,6 +209,14 @@ export function parseFile(file: BytecodeFile) {
 }
 
 export async function parseFunctionHeader(buffer: Buffer, file: BytecodeFile) {
+  if (buffer[15] & 0x20) {
+    const pointer = pointerFunctionHeader.parse(buffer);
+    buffer = Buffer.alloc(32);
+    await file.handle.read(buffer, 0, 32, (pointer.offsetHigh * 0x10000) | pointer.offsetLow);
+
+    return largeFunctionHeader.parse(buffer);
+  }
+
   const smallHeader = smallFunctionHeader.parse(buffer);
 
   if (smallHeader.overflowed) {

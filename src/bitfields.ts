@@ -1,4 +1,4 @@
-import { createBitfieldParser } from "./utils";
+import { createBitfieldParser, instrument } from "./utils";
 
 export const functionHeaderFlagFields = {
   prohibitInvoke: 2,
@@ -7,6 +7,14 @@ export const functionHeaderFlagFields = {
   hasDebugInfo: 1,
   overflowed: 1,
 };
+
+export const pointerFunctionHeader = createBitfieldParser({
+  offsetLow: 25,
+  _pad: 7 + 15 + 17,
+  offsetHigh: 25,
+});
+
+pointerFunctionHeader.parse = instrument("pointerFunctionHeader", pointerFunctionHeader.parse);
 
 export const smallFunctionHeader = createBitfieldParser({
   offset: 25,
@@ -22,6 +30,8 @@ export const smallFunctionHeader = createBitfieldParser({
   ...functionHeaderFlagFields,
 });
 
+smallFunctionHeader.parse = instrument("smallFunctionHeader", smallFunctionHeader.parse);
+
 export const largeFunctionHeader = createBitfieldParser({
   offset: 32,
   paramCount: 32,
@@ -35,6 +45,8 @@ export const largeFunctionHeader = createBitfieldParser({
 
   ...functionHeaderFlagFields,
 });
+
+largeFunctionHeader.parse = instrument("largeFunctionHeader", largeFunctionHeader.parse);
 
 export const stringKind = createBitfieldParser({
   count: 31,

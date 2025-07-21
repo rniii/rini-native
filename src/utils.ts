@@ -70,3 +70,35 @@ export function toBigInt(buffer: Buffer) {
   for (let i = 0; i < buffer.length; i++) bigint |= BigInt(buffer[i]) << BigInt(buffer.length - i - 1);
   return bigint;
 }
+
+const instrumentedFuncs = {} as any;
+process.on("exit", () => {
+  if (!Object.keys(instrumentedFuncs).length) return;
+
+  console.table(instrumentedFuncs);
+});
+
+export function instrument<F extends (...args: any[]) => any>(name: string, func: F) {
+  let accTime = 0;
+  let avgTime = 0;
+  let maxTime = 0;
+  let prevTime = 0;
+  let calls = 0;
+
+  process.on("beforeExit", () => {
+    instrumentedFuncs[name] = { accTime, avgTime, maxTime, calls };
+  });
+
+  return (...args: Parameters<F>) => {
+    const start = performance.now();
+    const res = func(...args);
+
+    const dt = performance.now() - start;
+
+    avgTime += 1 / ++calls * (dt - prevTime);
+    accTime += prevTime = dt;
+    maxTime = Math.max(dt, maxTime);
+
+    return res;
+  };
+}

@@ -1,4 +1,7 @@
+import { inspect, type InspectOptionsStylized } from "util"
 import { entries, fromEntries, hasOwn } from "./utils";
+
+const customInspectSymbol = Symbol.for('nodejs.util.inspect.custom');
 
 export type BitfieldSegment = {
   size: number;
@@ -57,6 +60,18 @@ export class Bitfield<K extends string> {
 
   createLazyParser(buffer: Buffer) {
     const cached: Partial<Record<K, number>> = {};
+
+    // @ts-expect-error
+    cached[customInspectSymbol] = (depth: number, options: InspectOptionsStylized, inspect: typeof import('util').inspect) => {
+      if (depth < 0) return options.stylize('[Bitfield]', 'special');
+
+      const UNCOMPUTED_VALUE = {
+        [customInspectSymbol]: (depth: number, options: InspectOptionsStylized) =>  options.stylize('(uncomputed)', 'undefined'),
+      }
+
+      return inspect(fromEntries(entries(this.fields).map(([field]) => [field, hasOwn(cached, field) ? cached[field] : UNCOMPUTED_VALUE])), options)
+    }
+
     return new Proxy(cached, {
       get: (target, prop) => {
         if (!hasOwn(this.fields, prop)) return undefined;

@@ -103,15 +103,25 @@ export type BytecodeFileSegment = keyof BytecodeFile["segments"];
 
 export function parseFile(file: BytecodeFile) {
   const parser = {
-    functionHeaders: lazyPromise(async () => {
+    smallFunctionHeaders: lazyPromise(async () => {
       const buffer = await file.segments.functionHeaders;
 
-      return Promise.all(Array.from({ length: file.header.functionCount }, (_, i) => (
-        parseFunctionHeader(
-          buffer.subarray(i * smallFunctionHeader.byteSize, (i + 1) * smallFunctionHeader.byteSize),
-          file,
-        )
-      )));
+      return Array.from({ length: file.header.functionCount }, (_, i) => (
+        smallFunctionHeader.parseElement(buffer, i)
+      ));
+    }),
+    functionHeaders: lazyPromise(async () => {
+      const table = await parser.smallFunctionHeaders
+
+      return Promise.all(Array.from({ length: file.header.functionCount }, async (_, i) => {
+        const smallHeader = table[i]
+        if (smallHeader.overflowed) {
+          const buffer = Buffer.alloc(32);
+          await file.handle.read(buffer, 0, 32, (smallHeader.infoOffset * 0x10000) | smallHeader.offset);
+
+          return largeFunctionHeader.parse(buffer);
+        }
+      }));
     }),
     stringKinds: lazyPromise(async () => {
       const buffer = await file.segments.stringKinds;
@@ -204,21 +214,7 @@ export function parseFile(file: BytecodeFile) {
         functionSourceEntry.parseElement(buffer, i)
       ));
     }),
-    // @ts-expect-error yopp
-  } satisfies Record<BytecodeFileSegment, PromiseLike<any>>;
-
-  return parser;
-}
-
-export async function parseFunctionHeader(buffer: Buffer, file: BytecodeFile) {
-  const smallHeader = smallFunctionHeader.parse(buffer);
-
-  if (smallHeader.overflowed) {
-    buffer = Buffer.alloc(32);
-    await file.handle.read(buffer, 0, 32, (smallHeader.infoOffset * 0x10000) | smallHeader.offset);
-
-    return largeFunctionHeader.parse(buffer);
   }
 
-  return smallHeader;
+  return parser;
 }

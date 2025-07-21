@@ -11,7 +11,9 @@ export function parseBitfield<K extends string>(buffer: Buffer, fields: Record<K
 
   const cursor = { byte: 0, bit: 0 };
   for (const [field, bitSize] of entries(fields)) {
-    if (bitSize > Math.log2(Number.MAX_SAFE_INTEGER)) throw new Error(`bitSize for "${field}" exceeds MAX_SAFE_INTEGER`)
+    if (bitSize > Math.log2(Number.MAX_SAFE_INTEGER)) {
+      throw new Error(`bitSize for "${field}" exceeds MAX_SAFE_INTEGER`);
+    }
     let bitsToRead = bitSize;
 
     while (bitsToRead > 0) {
@@ -37,18 +39,18 @@ export function parseBitfield<K extends string>(buffer: Buffer, fields: Record<K
 }
 
 export function lazyPromise<T>(get: () => Promise<T>): PromiseLike<T> {
-  let cached: T | undefined
+  let cached: T | undefined;
   return {
     then(resolve, reject) {
-      if (cached !== undefined) return Promise.resolve(cached).then(resolve)
-      return get().then(value => cached = value).then(resolve, reject)
-    }
-  }
+      if (cached !== undefined) return Promise.resolve(cached).then(resolve);
+      return get().then(value => cached = value).then(resolve, reject);
+    },
+  };
 }
 
 /** Parses buffer as little-endian bigint */
 export function toBigInt(buffer: Buffer) {
-  let bigint = 0n
-  for (let i = 0; i < buffer.length; i++) bigint |= BigInt(buffer[i]) << BigInt(buffer.length - i - 1)
-  return bigint
+  let bigint = 0n;
+  for (let i = 0; i < buffer.length; i++) bigint |= BigInt(buffer[i]) << BigInt(buffer.length - i - 1);
+  return bigint;
 }

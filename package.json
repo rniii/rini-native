@@ -1,5 +1,9 @@
 {
   "type": "module",
+  "scripts": {
+    "lint": "dprint check",
+    "lint:fix": "dprint fmt"
+  },
   "devDependencies": {
     "@types/node": "^24.0.15",
     "dprint": "^0.50.1",

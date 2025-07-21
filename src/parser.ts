@@ -15,7 +15,7 @@ export async function readHeader(handle: FileHandle) {
 
   let i = 0;
   const buffer = Buffer.alloc(128);
-  await handle.read(buffer, 0);
+  await handle.read(buffer, 0, 128, 0);
 
   const read64 = () => {
     let v = buffer.readBigInt64LE(i);

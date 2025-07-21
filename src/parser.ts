@@ -1,5 +1,5 @@
-import type { FileHandle } from "fs/promises";
 import { fromEntries, lazyPromise, parseBitfield, toBigInt } from "@/utils";
+import type { FileHandle } from "fs/promises";
 
 export async function readHeader(handle: FileHandle) {
   const MAGIC = 0x1F1903C103BC1FC6n;
@@ -50,10 +50,10 @@ export async function readHeader(handle: FileHandle) {
     ] as const).map(k => [k, read32()])),
     options: read8().toString(8).padStart(8, "0"),
   };
-};
+}
 
 export async function readFile(handle: FileHandle) {
-  const header = await readHeader(handle)
+  const header = await readHeader(handle);
 
   let i = 128;
   const segment = (size: number) => {
@@ -85,86 +85,87 @@ export async function readFile(handle: FileHandle) {
       regExpStorage: segment(header.regExpStorageSize),
       cjsModuleTable: segment(header.cjsModuleCount * 8),
       functionSourceTable: segment(header.functionSourceCount * 8),
-    }
+    },
   };
 }
 
-export type BytecodeFile = Awaited<ReturnType<typeof readFile>>
-export type BytecodeFileSegment = keyof BytecodeFile['segments']
+export type BytecodeFile = Awaited<ReturnType<typeof readFile>>;
+export type BytecodeFileSegment = keyof BytecodeFile["segments"];
 
 export function parseFile(file: BytecodeFile) {
   const parser = {
     functionHeaders: lazyPromise(async () => {
-      const buffer = await file.segments.functionHeaders
+      const buffer = await file.segments.functionHeaders;
 
       return Promise.all(Array.from({ length: file.header.functionCount }, (_, i) => (
         parseFunctionHeader(buffer.subarray(i * 16, (i + 1) * 16), file)
-      )))
+      )));
     }),
     stringTable: lazyPromise(async () => {
-      const buffer = await file.segments.stringTable
+      const buffer = await file.segments.stringTable;
 
       return Array.from({ length: file.header.stringCount }, (_, i) => (
         parseStringTableEntry(buffer.subarray(i * 12, (i + 1) * 12))
-      ))
+      ));
     }),
     overflowStringTable: lazyPromise(async () => {
-      const buffer = await file.segments.overflowStringTable
+      const buffer = await file.segments.overflowStringTable;
 
       return Array.from({ length: file.header.overflowStringCount }, (_, i) => (
         parseOffsetLengthPair(buffer.subarray(i * 8, (i + 1) * 8))
-      ))
+      ));
     }),
     stringStorage: lazyPromise(async () => {
-      const buffer = await file.segments.stringStorage
-      const table = await parser.stringTable
-      const overflowStringTable = await parser.overflowStringTable
+      const buffer = await file.segments.stringStorage;
+      const table = await parser.stringTable;
+      const overflowStringTable = await parser.overflowStringTable;
 
       const strings: string[] = [];
       for (let i = 0; i < file.header.stringCount; i++) {
-        let { isUtf16, length, offset } = table[i]
+        let { isUtf16, length, offset } = table[i];
 
         if (length === 0xFF) {
           if (!overflowStringTable[offset]) {
-            console.log('invalid entry stringTable[%o]', i, table[i])
+            console.log("invalid entry stringTable[%o]", i, table[i]);
           }
-          ({ length, offset } = overflowStringTable[offset])
+          ({ length, offset } = overflowStringTable[offset]);
         }
-        if (isUtf16) length *= 2
+        if (isUtf16) length *= 2;
 
-        const slice = buffer.subarray(offset, offset + length)
+        const slice = buffer.subarray(offset, offset + length);
 
-        strings.push(slice.toString(isUtf16 ? 'utf16le' : 'utf8'))
+        strings.push(slice.toString(isUtf16 ? "utf16le" : "utf8"));
       }
 
-      return strings
+      return strings;
     }),
     bigIntTable: lazyPromise(async () => {
-      const buffer = await file.segments.bigIntTable
+      const buffer = await file.segments.bigIntTable;
 
       return Array.from({ length: file.header.bigIntCount }, (_, i) => (
         parseOffsetLengthPair(buffer.subarray(i * 8, (i + 1) * 8))
-      ))
+      ));
     }),
     bigIntStorage: lazyPromise(async () => {
-      const buffer = await file.segments.bigIntStorage
-      const table = await parser.bigIntTable
+      const buffer = await file.segments.bigIntStorage;
+      const table = await parser.bigIntTable;
 
       return Array.from({ length: file.header.bigIntCount }, (_, i): BigInt => {
-        const { offset, length } = table[i]
-        return toBigInt(buffer.subarray(offset, offset + length))
-      })
+        const { offset, length } = table[i];
+        return toBigInt(buffer.subarray(offset, offset + length));
+      });
     }),
     functionSourceTable: lazyPromise(async () => {
-      const buffer = await file.segments.functionSourceTable
+      const buffer = await file.segments.functionSourceTable;
 
       return Array.from({ length: file.header.overflowStringCount }, (_, i) => (
         parseFunctionSourceEntry(buffer.subarray(i * 8, (i + 1) * 8))
-      ))
+      ));
     }),
-  } satisfies Record<BytecodeFileSegment, PromiseLike<any>>
+    // @ts-expect-error yopp
+  } satisfies Record<BytecodeFileSegment, PromiseLike<any>>;
 
-  return parser
+  return parser;
 }
 
 export function parseSmallFunctionHeader(buffer: Buffer) {
@@ -188,7 +189,7 @@ export function parseSmallFunctionHeader(buffer: Buffer) {
     overflowed: 1,
   });
 
-  return Object.assign(parsed, { flags })
+  return Object.assign(parsed, { flags });
 }
 export function parseLargeFunctionHeader(buffer: Buffer) {
   const parsed = parseBitfield(buffer, {
@@ -211,20 +212,20 @@ export function parseLargeFunctionHeader(buffer: Buffer) {
     overflowed: 1,
   });
 
-  return Object.assign(parsed, { flags })
+  return Object.assign(parsed, { flags });
 }
 
 export async function parseFunctionHeader(buffer: Buffer, file: BytecodeFile) {
-  const smallHeader = parseSmallFunctionHeader(buffer)
+  const smallHeader = parseSmallFunctionHeader(buffer);
 
   if (smallHeader.flags.overflowed) {
-    buffer = Buffer.alloc(32)
-    await file.handle.read(buffer, 0, 32, (smallHeader.infoOffset * 0x10000) | smallHeader.offset)
+    buffer = Buffer.alloc(32);
+    await file.handle.read(buffer, 0, 32, (smallHeader.infoOffset * 0x10000) | smallHeader.offset);
 
-    return parseLargeFunctionHeader(buffer)
+    return parseLargeFunctionHeader(buffer);
   }
 
-  return smallHeader
+  return smallHeader;
 }
 
 export function parseStringTableEntry(buffer: Buffer) {
@@ -248,4 +249,3 @@ export function parseFunctionSourceEntry(buffer: Buffer) {
     stringId: 32,
   });
 }
-

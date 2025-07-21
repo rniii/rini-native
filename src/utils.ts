@@ -6,6 +6,22 @@ export function entries<K extends string | number | symbol, V>(obj: { [key in K]
   return Object.entries(obj) as [K, V][];
 }
 
+export function padSize(size: number) {
+  return Math.ceil(size / 4) * 4;
+}
+
+export function createBitfieldParser<K extends string>(fields: Record<K, number>) {
+  const bitSize = entries(fields).reduce((a, [, b]) => a + b, 0);
+  const byteSize = Math.ceil(bitSize / 8);
+
+  return {
+    size: byteSize,
+    parse: (buffer: Buffer) => parseBitfield(buffer, fields),
+    parseElement: (buffer: Buffer, idx: number) =>
+      parseBitfield(buffer.subarray(idx * byteSize, (idx + 1) * byteSize), fields),
+  };
+}
+
 export function parseBitfield<K extends string>(buffer: Buffer, fields: Record<K, number>) {
   const parsed = fromEntries(entries(fields).map(([field]) => [field, 0]));
 

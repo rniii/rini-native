@@ -1,5 +1,4 @@
 import { Bitfield } from "./Bitfield";
-import { instrument } from "./utils";
 
 export const functionHeaderFlagFields = {
   prohibitInvoke: 2,
@@ -23,8 +22,6 @@ export const smallFunctionHeader = new Bitfield({
   ...functionHeaderFlagFields,
 });
 
-smallFunctionHeader.parse = instrument("smallFunctionHeader", smallFunctionHeader.parse.bind(smallFunctionHeader));
-
 export const largeFunctionHeader = new Bitfield({
   offset: 32,
   paramCount: 32,
@@ -38,8 +35,6 @@ export const largeFunctionHeader = new Bitfield({
 
   ...functionHeaderFlagFields,
 });
-
-largeFunctionHeader.parse = instrument("largeFunctionHeader", largeFunctionHeader.parse.bind(largeFunctionHeader));
 
 export const stringKind = new Bitfield({
   count: 31,

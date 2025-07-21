@@ -1,4 +1,5 @@
-import { createBitfieldParser, instrument } from "./utils";
+import { Bitfield } from "./Bitfield";
+import { instrument } from "./utils";
 
 export const functionHeaderFlagFields = {
   prohibitInvoke: 2,
@@ -8,15 +9,7 @@ export const functionHeaderFlagFields = {
   overflowed: 1,
 };
 
-export const pointerFunctionHeader = createBitfieldParser({
-  offsetLow: 25,
-  _pad: 7 + 15 + 17,
-  offsetHigh: 25,
-});
-
-pointerFunctionHeader.parse = instrument("pointerFunctionHeader", pointerFunctionHeader.parse);
-
-export const smallFunctionHeader = createBitfieldParser({
+export const smallFunctionHeader = new Bitfield({
   offset: 25,
   paramCount: 7,
   bytecodeSizeInBytes: 15,
@@ -32,7 +25,7 @@ export const smallFunctionHeader = createBitfieldParser({
 
 smallFunctionHeader.parse = instrument("smallFunctionHeader", smallFunctionHeader.parse);
 
-export const largeFunctionHeader = createBitfieldParser({
+export const largeFunctionHeader = new Bitfield({
   offset: 32,
   paramCount: 32,
   bytecodeSizeInBytes: 32,
@@ -48,27 +41,27 @@ export const largeFunctionHeader = createBitfieldParser({
 
 largeFunctionHeader.parse = instrument("largeFunctionHeader", largeFunctionHeader.parse);
 
-export const stringKind = createBitfieldParser({
+export const stringKind = new Bitfield({
   count: 31,
   kind: 1,
 });
 
-export const identifierHash = createBitfieldParser({
+export const identifierHash = new Bitfield({
   hash: 32,
 });
 
-export const stringTableEntry = createBitfieldParser({
+export const stringTableEntry = new Bitfield({
   isUtf16: 1,
   offset: 23,
   length: 8,
 });
 
-export const offsetLengthPair = createBitfieldParser({
+export const offsetLengthPair = new Bitfield({
   offset: 32,
   length: 32,
 });
 
-export const functionSourceEntry = createBitfieldParser({
+export const functionSourceEntry = new Bitfield({
   functionId: 32,
   stringId: 32,
 });

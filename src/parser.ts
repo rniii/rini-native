@@ -5,7 +5,6 @@ import {
   identifierHash,
   largeFunctionHeader,
   offsetLengthPair,
-  pointerFunctionHeader,
   smallFunctionHeader,
   stringKind,
   stringTableEntry,
@@ -80,21 +79,21 @@ export async function readFile(handle: FileHandle) {
     header,
     handle,
     segments: {
-      functionHeaders: segment(header.functionCount * smallFunctionHeader.size),
-      stringKinds: segment(header.stringKindCount * stringKind.size),
-      identifierHashes: segment(header.identifierCount * identifierHash.size),
-      stringTable: segment(header.stringCount * stringTableEntry.size),
-      overflowStringTable: segment(header.overflowStringCount * offsetLengthPair.size),
+      functionHeaders: segment(header.functionCount * smallFunctionHeader.byteSize),
+      stringKinds: segment(header.stringKindCount * stringKind.byteSize),
+      identifierHashes: segment(header.identifierCount * identifierHash.byteSize),
+      stringTable: segment(header.stringCount * stringTableEntry.byteSize),
+      overflowStringTable: segment(header.overflowStringCount * offsetLengthPair.byteSize),
       stringStorage: segment(header.stringStorageSize),
       arrayBuffer: segment(header.arrayBufferSize),
       objectKeyBuffer: segment(header.objKeyBufferSize),
       objectValueBuffer: segment(header.objValueBufferSize),
-      bigIntTable: segment(header.bigIntCount * offsetLengthPair.size),
+      bigIntTable: segment(header.bigIntCount * offsetLengthPair.byteSize),
       bigIntStorage: segment(header.bigIntStorageSize),
-      regExpTable: segment(header.regExpCount * offsetLengthPair.size),
+      regExpTable: segment(header.regExpCount * offsetLengthPair.byteSize),
       regExpStorage: segment(header.regExpStorageSize),
-      cjsModuleTable: segment(header.cjsModuleCount * offsetLengthPair.size),
-      functionSourceTable: segment(header.functionSourceCount * functionSourceEntry.size),
+      cjsModuleTable: segment(header.cjsModuleCount * offsetLengthPair.byteSize),
+      functionSourceTable: segment(header.functionSourceCount * functionSourceEntry.byteSize),
     },
   };
 }
@@ -108,7 +107,10 @@ export function parseFile(file: BytecodeFile) {
       const buffer = await file.segments.functionHeaders;
 
       return Promise.all(Array.from({ length: file.header.functionCount }, (_, i) => (
-        parseFunctionHeader(buffer.subarray(i * smallFunctionHeader.size, (i + 1) * smallFunctionHeader.size), file)
+        parseFunctionHeader(
+          buffer.subarray(i * smallFunctionHeader.byteSize, (i + 1) * smallFunctionHeader.byteSize),
+          file,
+        )
       )));
     }),
     stringKinds: lazyPromise(async () => {
@@ -209,14 +211,6 @@ export function parseFile(file: BytecodeFile) {
 }
 
 export async function parseFunctionHeader(buffer: Buffer, file: BytecodeFile) {
-  if (buffer[15] & 0x20) {
-    const pointer = pointerFunctionHeader.parse(buffer);
-    buffer = Buffer.alloc(32);
-    await file.handle.read(buffer, 0, 32, (pointer.offsetHigh * 0x10000) | pointer.offsetLow);
-
-    return largeFunctionHeader.parse(buffer);
-  }
-
   const smallHeader = smallFunctionHeader.parse(buffer);
 
   if (smallHeader.overflowed) {

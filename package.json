@@ -2,6 +2,7 @@
   "type": "module",
   "devDependencies": {
     "@types/node": "^24.0.15",
+    "dprint": "^0.50.1",
     "tsx": "^4.20.3"
   }
 }

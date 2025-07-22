@@ -7,7 +7,7 @@ const file = await readFile(await open("base/assets/index.android.bundle"));
 const parser = parseFile(file);
 const functions = await parser.functionHeaders;
 const strings = await parser.stringStorage;
-const func = functions[3];
+const func = functions[5];
 
 console.log(
   functions.map((f, i) => f.functionName != 255 && [i, strings[f.functionName]]).filter(x => x).slice(0, 128),
@@ -24,7 +24,7 @@ function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Bu
   const name = strings[func.functionName] || "<closure>";
   const addr = "0x" + func.offset.toString(16).padStart(8, "0");
   const mangled = `${cyan}${name}@${green}${addr}${reset}`;
-  const params = Array.from(Array(func.paramCount), (_, i) => `r${i}`).join(", ");
+  const params = Array.from(Array(func.paramCount), (_, i) => `p${i + 1}`).join(", ");
 
   // there should be an array of instructions instead of the source liens but im lazy
   const lines = [] as string[];
@@ -100,10 +100,11 @@ function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Bu
 
   // has some jank:
   // -  backward jump logic not there yet (just reverse source and target and check < addr)
-  // -  targets with multiple sources kinda break
-  // -  function index number 5 really breaks this
-  // -  when there are too many jumps to allocate a lane, it should point offscreen, but the same
-  //    has to be done in the target
+  // -  ~~targets with multiple sources kinda break~~  fixed
+  // -  ~~function index number 5 really breaks this~~  〃
+  // -  ~~when there are too many jumps to allocate a lane, it should point offscreen, but the same
+  //    has to be done in the target~~    not really actually
+  // -  still jank tho
   //
   // gl
 
@@ -116,10 +117,11 @@ function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Bu
     let j = 0;
 
     if (jumpSources[addr] && jumpSources[addr] > addr) {
-      j = lanes.findLastIndex(x => x == null);
+      j = lanes.findLastIndex(x => x == null || x == jumpSources[addr]);
 
       prefix = lanes.map((lane, i) => {
-        if (i == j) return "┌";
+        if (i == j) return lane == null ? "┌" : "├";
+        if (i > j) return lane == null ? "─" : "┼";
         return lane == null ? " " : "│";
       }).join("") + "─";
 
@@ -127,35 +129,17 @@ function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Bu
     } else if (jumpTargets[addr] && (j = lanes.indexOf(addr)) >= 0) {
       prefix = lanes.map((lane, i) => {
         if (i == j) return "└";
-        if (i > j) return lane == null ? "─" : "┼"; // not great (ambiguous)
+        if (i > j) return lane == null ? "─" : "┼";
         return lane == null ? " " : "│";
-      }).join("") + ">";
+      }).join("") + "→";
 
       lanes[j] = null;
     } else {
       prefix = lanes.map(lane => lane == null ? " " : "│").join("") + " ";
     }
 
-    lines[i] = prefix.padStart(lanes.length + 2) + line;
+    lines[i] = addr.toString(16).padStart(8, "0") + prefix.padStart(8) + line;
   }
-
-  // const arrows = [] as (number | null)[];
-
-  // lines.map((line, i) => {
-  //   const addr = addresses[i];
-  //   let j;
-
-  //   if (jumpSources[addr] && jumpSources[addr] > addr) {
-  //     lines[i] = ("┌" + "─".repeat(arrows.length)).padStart(7) + " " + line;
-  //     arrows.push(jumpSources[addr]);
-  //   } else if (jumpTargets[addr] && (j = arrows.indexOf(addr)) >= 0) {
-  //     arrows[j] = null;
-
-  //     lines[i] = "└>".padStart(8) + line;
-  //   } else {
-  //     lines[i] = "│".repeat(arrows.length).padStart(7) + " " + line;
-  //   }
-  // });
 
   return `${mangled}(${params}):\n`
     + lines.join("\n");

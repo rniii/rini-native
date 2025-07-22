@@ -1,7 +1,7 @@
 {
   "type": "module",
   "scripts": {
-    "test": "esbuild ./test --bundle --platform=node --format=esm | node -",
+    "test": "esbuild ./test --bundle --platform=node --format=esm --sourcemap=inline | node --enable-source-maps -",
     "lint": "dprint check",
     "lint:fix": "dprint fmt"
   },

@@ -9,6 +9,7 @@ import {
   stringKind,
   stringTableEntry,
 } from "./bitfields";
+import type { ParsedBitfield } from "./Bitfield"
 
 export async function readHeader(handle: FileHandle) {
   const MAGIC = 0x1F1903C103BC1FC6n;
@@ -111,17 +112,30 @@ export function parseFile(file: BytecodeFile) {
       ));
     }),
     functionHeaders: lazyPromise(async () => {
-      const table = await parser.smallFunctionHeaders
+      const table: ParsedBitfield<typeof smallFunctionHeader>[] = await parser.smallFunctionHeaders;
 
-      return Promise.all(Array.from({ length: file.header.functionCount }, async (_, i) => {
-        const smallHeader = table[i]
-        if (smallHeader.overflowed) {
-          const buffer = Buffer.alloc(32);
-          await file.handle.read(buffer, 0, 32, (smallHeader.infoOffset * 0x10000) | smallHeader.offset);
+      const range: [number, number] = [Infinity, 0]
+      for (const smallHeader of table) {
+        if (!smallHeader.overflowed) continue
 
-          return largeFunctionHeader.parse(buffer);
-        }
-      }));
+        const largeOffset = (smallHeader.infoOffset * 0x10000) | smallHeader.offset
+        range[0] = Math.min(range[0], largeOffset)
+        range[1] = Math.max(range[1], largeOffset + largeFunctionHeader.byteSize)
+      }
+
+      let buffer = Buffer.alloc(0)
+      if (Number.isFinite(range[0])) {
+        buffer = Buffer.alloc(range[1] - range[0])
+        await file.handle.read(buffer, 0, buffer.length, range[0])
+      }
+
+      return Array.from({ length: file.header.functionCount }, (_, i) => {
+        const smallHeader = table[i];
+        if (!smallHeader.overflowed) return smallHeader
+
+        const largeOffset = ((smallHeader.infoOffset * 0x10000) | smallHeader.offset) - range[0]
+        return largeFunctionHeader.parse(buffer.subarray(largeOffset, largeOffset + largeFunctionHeader.byteSize))
+      });
     }),
     stringKinds: lazyPromise(async () => {
       const buffer = await file.segments.stringKinds;
@@ -184,9 +198,9 @@ export function parseFile(file: BytecodeFile) {
     }),
     bigIntStorage: lazyPromise(async () => {
       const buffer = await file.segments.bigIntStorage;
-      const table = await parser.bigIntTable;
+      const table: ParsedBitfield<typeof offsetLengthPair>[] = await parser.bigIntTable;
 
-      return Array.from({ length: file.header.bigIntCount }, (_, i): BigInt => {
+      return Array.from({ length: file.header.bigIntCount }, (_, i) => {
         const { offset, length } = table[i];
         return toBigInt(buffer.subarray(offset, offset + length));
       });
@@ -214,7 +228,7 @@ export function parseFile(file: BytecodeFile) {
         functionSourceEntry.parseElement(buffer, i)
       ));
     }),
-  }
+  };
 
   return parser;
 }

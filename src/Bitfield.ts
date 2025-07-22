@@ -1,7 +1,7 @@
-import { inspect, type InspectOptionsStylized } from "util"
-import { entries, fromEntries, hasOwn } from "./utils";
+import type { CustomInspectFunction } from "util";
+import { entries, fromEntries, hasOwn, padSize } from "./utils";
 
-const customInspectSymbol = Symbol.for('nodejs.util.inspect.custom');
+const customInspectSymbol = Symbol.for("nodejs.util.inspect.custom");
 
 export type BitfieldSegment = {
   size: number;
@@ -17,7 +17,7 @@ export class Bitfield<K extends string> {
 
   constructor(public fields: Record<K, number>) {
     this.bitSize = entries(this.fields).reduce((a, [, b]) => a + b, 0);
-    this.byteSize = Math.ceil(this.bitSize / 8);
+    this.byteSize = padSize(Math.ceil(this.bitSize / 8));
 
     this.segments = fromEntries(entries(this.fields).map(([field]) => [field, []]));
 
@@ -61,16 +61,17 @@ export class Bitfield<K extends string> {
   createLazyParser(buffer: Buffer) {
     const cached: Partial<Record<K, number>> = {};
 
+    const uncomputedInspect: CustomInspectFunction = (depth, options) => options.stylize("(uncomputed)", "undefined");
+    const lazyInpsect: CustomInspectFunction = (depth, options) => {
+      if (depth < 0) return options.stylize("[Bitfield]", "special");
+      const UNCOMPUTED_VALUE = { [customInspectSymbol]: uncomputedInspect };
+      return fromEntries(
+        entries(this.fields).map(([field]) => [field, hasOwn(cached, field) ? cached[field] : UNCOMPUTED_VALUE]),
+      );
+    };
+
     // @ts-expect-error
-    cached[customInspectSymbol] = (depth: number, options: InspectOptionsStylized, inspect: typeof import('util').inspect) => {
-      if (depth < 0) return options.stylize('[Bitfield]', 'special');
-
-      const UNCOMPUTED_VALUE = {
-        [customInspectSymbol]: (depth: number, options: InspectOptionsStylized) =>  options.stylize('(uncomputed)', 'undefined'),
-      }
-
-      return inspect(fromEntries(entries(this.fields).map(([field]) => [field, hasOwn(cached, field) ? cached[field] : UNCOMPUTED_VALUE])), options)
-    }
+    cached[customInspectSymbol] = lazyInpsect;
 
     return new Proxy(cached, {
       get: (target, prop) => {
@@ -94,3 +95,5 @@ export class Bitfield<K extends string> {
     return this.parse(buffer.subarray(index * this.byteSize, (index + 1) * this.byteSize), lazy);
   }
 }
+
+export type ParsedBitfield<T extends Bitfield<string>> = T['fields']

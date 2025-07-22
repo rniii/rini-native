@@ -3,7 +3,7 @@
 /**
  * Numeric Hermes instruction opcodes.
  */
-export const enum Opcode { // {{{
+export enum Opcode { // {{{
   Unreachable,
   NewObjectWithBuffer,
   NewObjectWithBufferLong,
@@ -430,7 +430,7 @@ export const opcodeTypes = { // {{{
 export const bigintOperands = { // {{{
   [Opcode.LoadConstBigInt]: [2],
   [Opcode.LoadConstBigIntLongIndex]: [2],
-}; // }}}
+} as Record<Opcode, number[]>; // }}}
 
 /**
  * Opcodes which have operands referring to the function table.
@@ -445,7 +445,7 @@ export const functionOperands = { // {{{
   [Opcode.CreateAsyncClosureLongIndex]: [3],
   [Opcode.CreateGenerator]: [3],
   [Opcode.CreateGeneratorLongIndex]: [3],
-}; // }}}
+} as Record<Opcode, number[]>; // }}}
 
 /**
  * Opcodes which have operands referring to the string table.
@@ -472,6 +472,6 @@ export const stringOperands = { // {{{
   [Opcode.LoadConstString]: [2],
   [Opcode.LoadConstStringLongIndex]: [2],
   [Opcode.CreateRegExp]: [2, 3],
-}; // }}}
+} as Record<Opcode, number[]>; // }}}
 
 // vim: set foldenable:

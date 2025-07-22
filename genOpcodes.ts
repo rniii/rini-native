@@ -44,7 +44,7 @@ let src = `\
 /**
  * Numeric Hermes instruction opcodes.
  */
-export const enum Opcode { // {{{
+export enum Opcode { // {{{
 ${entries(opcodes).map(([op]) => `  ${op},`).join("\n")}
 } // }}}
 
@@ -60,21 +60,21 @@ ${entries(opcodes).map(([op, args]) => `  [Opcode.${op}]: ${stringify(args)},`).
  */
 export const bigintOperands = { // {{{
 ${entries(bigintOps).map(([op, args]) => `  [Opcode.${op}]: ${stringify(args)},`).join("\n")}
-}; // }}}
+} as Record<Opcode, number[]>; // }}}
 
 /**
  * Opcodes which have operands referring to the function table.
  */
 export const functionOperands = { // {{{
 ${entries(functionOps).map(([op, args]) => `  [Opcode.${op}]: ${stringify(args)},`).join("\n")}
-}; // }}}
+} as Record<Opcode, number[]>; // }}}
 
 /**
  * Opcodes which have operands referring to the string table.
  */
 export const stringOperands = { // {{{
 ${entries(stringOps).map(([op, args]) => `  [Opcode.${op}]: ${stringify(args)},`).join("\n")}
-}; // }}}
+} as Record<Opcode, number[]>; // }}}
 
 // vim: set foldenable:
 `;

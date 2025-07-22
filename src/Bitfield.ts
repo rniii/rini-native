@@ -1,7 +1,5 @@
-import type { CustomInspectFunction } from "util";
-import { entries, fromEntries, hasOwn, padSize } from "@/utils";
-
-const customInspectSymbol = Symbol.for("nodejs.util.inspect.custom");
+import { inspect, type CustomInspectFunction } from "util";
+import { entries, fromEntries, hasOwn, padSize } from "./utils";
 
 export type BitfieldSegment = {
   size: number;
@@ -64,14 +62,14 @@ export class Bitfield<K extends string> {
     const uncomputedInspect: CustomInspectFunction = (depth, options) => options.stylize("(uncomputed)", "undefined");
     const lazyInpsect: CustomInspectFunction = (depth, options) => {
       if (depth < 0) return options.stylize("[Bitfield]", "special");
-      const UNCOMPUTED_VALUE = { [customInspectSymbol]: uncomputedInspect };
+      const UNCOMPUTED_VALUE = { [inspect.custom]: uncomputedInspect };
       return fromEntries(
         entries(this.fields).map(([field]) => [field, hasOwn(cached, field) ? cached[field] : UNCOMPUTED_VALUE]),
       );
     };
 
     // @ts-expect-error
-    cached[customInspectSymbol] = lazyInpsect;
+    cached[inspect.custom] = lazyInpsect;
 
     return new Proxy(cached, {
       get: (target, prop) => {

@@ -91,65 +91,55 @@ function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Bu
     lines.push(src);
   }
 
-  // has some jank:
-  // -  backward jump logic not there yet (just reverse source and target and check < addr)
-  // -  ~~targets with multiple sources kinda break~~  fixed
-  // -  ~~function index number 5 really breaks this~~  〃
-  // -  ~~when there are too many jumps to allocate a lane, it should point offscreen, but the same
-  //    has to be done in the target~~    not really actually
-  // -  still jank tho
-  //
-  // gl
+  const lanes = [-1, -1, -1, -1, -1, -1];
 
-  const lanes = [null, null, null, null, null, null as number | null];
+  const getLane = (target: number) => (
+    lanes.findLastIndex(x => x == -1 || x == target)
+  );
+
+  const drawCurve = (curve: number, downwards: boolean) => {
+    return [
+      ...lanes.slice(0, curve).map(lane => lane == -1 ? " " : "│"),
+      lanes[curve] == -1 ? downwards ? "┌" : "└" : "├",
+      ...lanes.slice(curve + 1).map(lane => lane == -1 ? "─" : "┼"),
+    ];
+  };
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const addr = addresses[i];
-    let prefix = "";
-    let j = 0;
 
-    if (jumpSources[addr] && jumpSources[addr] > addr) {
-      j = lanes.findLastIndex(x => x == null || x == jumpSources[addr]);
+    let prefix = lanes.map(lane => lane == -1 ? " " : "│" as string);
 
-      prefix = lanes.map((lane, i) => {
-        if (i == j) return lane == null ? "┌" : "├";
-        if (i > j) return lane == null ? "─" : "┼";
-        return lane == null ? " " : "│";
-      }).join("") + "─";
-
-      lanes[j] = jumpSources[addr];
-    } else if (jumpTargets[addr] && jumpTargets[addr] > addr) {
-      j = lanes.findLastIndex(x => x == null || x == jumpTargets[addr]);
-
-      prefix = lanes.map((lane, i) => {
-        if (i == j) return lane == null ? "┌" : "├";
-        if (i > j) return lane == null ? "─" : "┼";
-        return lane == null ? " " : "│";
-      }).join("") + "→";
-
-      lanes[j] = addr;
-    } else if (jumpTargets[addr] && (j = lanes.indexOf(addr)) >= 0) {
-      lanes[j] = null;
-
-      prefix = lanes.map((lane, i) => {
-        if (i == j) return "└";
-        if (i > j) return lane == null ? "─" : "┼";
-        return lane == null ? " " : "│";
-      }).join("") + "→";
-    } else if (jumpSources[addr] && (j = lanes.indexOf(jumpSources[addr])) >= 0) {
-      if (addr == jumpTargets[jumpSources[addr]]) lanes[j] = null;
-
-      prefix = lanes.map((lane, i) => {
-        if (i == j) return lane == null ? "└" : "├";
-        if (i > j) return lane == null ? "─" : "┼";
-        return lane == null ? " " : "│";
-      }).join("") + "─";
+    if (jumpSources[addr] && jumpTargets[addr]) {
+      prefix.push("×");
+    } else if (jumpSources[addr]) {
+      if (jumpSources[addr] > addr) {
+        const curve = getLane(jumpSources[addr]);
+        prefix = drawCurve(curve, true);
+        lanes[curve] = jumpSources[addr];
+      } else {
+        const curve = lanes.indexOf(jumpSources[addr]);
+        if (addr == jumpTargets[jumpSources[addr]]) lanes[curve] = -1;
+        prefix = drawCurve(curve, false);
+      }
+      prefix.push("─");
+    } else if (jumpTargets[addr]) {
+      if (jumpTargets[addr] > addr) {
+        const curve = getLane(jumpTargets[addr]);
+        prefix = drawCurve(curve, true);
+        lanes[curve] = addr;
+      } else {
+        const curve = lanes.indexOf(addr);
+        lanes[curve] = -1;
+        prefix = drawCurve(curve, false);
+      }
+      prefix.push("→");
     } else {
-      prefix = lanes.map(lane => lane == null ? " " : "│").join("") + " ";
+      prefix.push(" ");
     }
 
-    lines[i] = addr.toString(16).padStart(8, "0") + prefix.padStart(8) + line;
+    lines[i] = addr.toString(16).padStart(8, "0") + " " + prefix.join("") + line;
   }
 
   // const pointers = jumpSources.map((to, from) => ({ from: addr2line[from], to: addr2line[to] })).filter(n => n != null);

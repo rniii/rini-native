@@ -6,6 +6,10 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "noEmit": true,
-    "target": "ESNext"
+    "target": "ESNext",
+
+    "paths": {
+      "@/*": [ "./src/*" ]
+    }
   }
 }

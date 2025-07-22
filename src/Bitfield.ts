@@ -1,5 +1,5 @@
 import type { CustomInspectFunction } from "util";
-import { entries, fromEntries, hasOwn, padSize } from "./utils";
+import { entries, fromEntries, hasOwn, padSize } from "@/utils";
 
 const customInspectSymbol = Symbol.for("nodejs.util.inspect.custom");
 

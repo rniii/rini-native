@@ -1,4 +1,4 @@
-import { Bitfield } from "./Bitfield";
+import { Bitfield } from "@/Bitfield";
 
 export const enum TagType {
   Null = 0,

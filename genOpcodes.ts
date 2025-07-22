@@ -1,5 +1,5 @@
-import { entries } from "./src/utils";
 import { writeFile } from "fs/promises";
+import { entries } from "./src/utils";
 
 const hermesUrl = "https://github.com/facebook/hermes/raw/refs/tags/v0.13.0/";
 

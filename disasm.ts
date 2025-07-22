@@ -1,9 +1,10 @@
 import type { largeFunctionHeader } from "@/bitfields";
+import { CYAN, drawGutter, GREEN, PURPLE, RED, RESET } from "@/formatting";
 import { Opcode, opcodeTypes, stringOperands } from "@/opcodes";
 import { parseFile, readFile } from "@/parser";
 import { open } from "fs/promises";
 
-const file = await readFile(await open("base/assets/index.android.bundle"));
+const file = await readFile(await open("./test/index.android.bundle"));
 const parser = parseFile(file);
 const functions = await parser.functionHeaders;
 const strings = await parser.stringStorage;
@@ -13,25 +14,17 @@ console.log(
   functions.map((f, i) => f.functionName != 255 && [i, strings[f.functionName]]).filter(x => x).slice(0, 128),
 );
 
-const color = (c?: number) => `\x1b[${c ?? ""}m`;
-const red = color(31);
-const green = color(32);
-const purple = color(35);
-const cyan = color(36);
-const reset = color();
-
 function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Buffer) {
   const name = strings[func.functionName] || "<closure>";
   const addr = "0x" + func.offset.toString(16).padStart(8, "0");
-  const mangled = `${cyan}${name}@${green}${addr}${reset}`;
-  const params = Array.from(Array(func.paramCount), (_, i) => `p${i + 1}`).join(", ");
+  const mangled = `${CYAN}${name}@${GREEN}${addr}${RESET}`;
+  const params = Array.from(Array(func.paramCount), (_, i) => `r${i}`).join(", ");
 
-  // there should be an array of instructions instead of the source liens but im lazy
-  const lines = [] as string[];
-  const addresses = [] as number[];
-  const addr2line = [] as number[];
-  const jumpSources = [] as number[];
-  const jumpTargets = [] as number[];
+  const addresses: number[] = [];
+  const addr2line: number[] = [];
+  let lines: string[] = [];
+  const jumpSources: number[] = [];
+  const jumpTargets: number[] = [];
 
   let i = 0;
   while (i < buf.length) {
@@ -46,12 +39,12 @@ function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Bu
     let src = "";
 
     if (!name) {
-      src += `${red}invalid ${op}`;
+      src += `${RED}invalid ${op}`;
       lines.push(src);
       continue;
     }
 
-    src += `${purple}${name.padEnd(24)}${reset}`;
+    src += `${PURPLE}${name.padEnd(24)}${RESET}`;
 
     try {
       for (let j = 0; j < types.length; j++) {
@@ -91,7 +84,7 @@ function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Bu
         i += width;
       }
     } catch {
-      src += ` ${red}<truncated>`;
+      src += ` ${RED}<truncated>`;
       continue;
     }
 
@@ -158,6 +151,11 @@ function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Bu
 
     lines[i] = addr.toString(16).padStart(8, "0") + prefix.padStart(8) + line;
   }
+
+  // const pointers = jumpSources.map((to, from) => ({ from: addr2line[from], to: addr2line[to] })).filter(n => n != null);
+  // const gutter = drawGutter(lines.length, pointers, { colors: true });
+
+  // lines = lines.map((line, i) => gutter[i] + line);
 
   return `${mangled}(${params}):\n`
     + lines.join("\n");

@@ -1,5 +1,5 @@
-import { writeFile } from "node:fs/promises"
-import { Session } from "node:inspector/promises"
+import { writeFile } from "node:fs/promises";
+import { Session } from "node:inspector/promises";
 
 const instrumentedFuncs = {} as any;
 process.on("exit", () => {
@@ -34,16 +34,16 @@ export function instrument<F extends (...args: any[]) => any>(name: string, func
 }
 
 export async function measureProfile(outFile: string) {
-    const session = new Session();
-    session.connect();
+  const session = new Session();
+  session.connect();
 
-    await session.post('Profiler.enable');
-    await session.post('Profiler.start');
+  await session.post("Profiler.enable");
+  await session.post("Profiler.start");
 
-    return {
-        async [Symbol.asyncDispose]() {
-            const { profile } = await session.post('Profiler.stop');
-            await writeFile(outFile, JSON.stringify(profile));
-        }
-    }
+  return {
+    async [Symbol.asyncDispose]() {
+      const { profile } = await session.post("Profiler.stop");
+      await writeFile(outFile, JSON.stringify(profile));
+    },
+  };
 }

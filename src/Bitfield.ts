@@ -1,4 +1,4 @@
-import { inspect, type CustomInspectFunction } from "util";
+import { type CustomInspectFunction, inspect } from "util";
 import { entries, fromEntries, hasOwn, padSize } from "./utils";
 
 export type BitfieldSegment = {

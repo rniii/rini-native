@@ -10,6 +10,21 @@ export function hasOwn<O extends object>(obj: O, key: string | number | symbol):
   return Object.hasOwn(obj, key);
 }
 
+export function transpose<T>(matrix: T[][]): T[][] {
+  const newArray: T[][] = [];
+  for (let i = 0; i < matrix[0].length; i++) {
+    newArray.push([]);
+  }
+
+  for (let y = 0; y < matrix.length; y++) {
+    for (let x = 0; x < matrix[0].length; x++) {
+      newArray[x].push(matrix[y][x]);
+    }
+  }
+
+  return newArray;
+}
+
 export function padSize(size: number) {
   return Math.ceil(size / 4) * 4;
 }

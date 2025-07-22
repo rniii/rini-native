@@ -1,6 +1,6 @@
+import type { ParsedBitfield } from "@/Bitfield";
 import { fromEntries, lazyPromise, toBigInt } from "@/utils";
 import type { FileHandle } from "node:fs/promises";
-import type { ParsedBitfield } from "@/Bitfield";
 import {
   functionSourceEntry,
   identifierHash,

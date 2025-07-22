@@ -26,9 +26,10 @@ function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Bu
   const mangled = `${cyan}${name}@${green}${addr}${reset}`;
   const params = Array.from(Array(func.paramCount), (_, i) => `r${i}`).join(", ");
 
+  // there should be an array of instructions instead of the source liens but im lazy
+  const lines = [] as string[];
   const addresses = [] as number[];
   const addr2line = [] as number[];
-  const lines = [] as string[];
   const jumpSources = [] as number[];
   const jumpTargets = [] as number[];
 

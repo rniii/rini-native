@@ -1,12 +1,13 @@
 {
   "type": "module",
   "scripts": {
+    "test": "esbuild ./test --bundle --platform=node --format=esm | node -",
     "lint": "dprint check",
     "lint:fix": "dprint fmt"
   },
   "devDependencies": {
     "@types/node": "^24.0.15",
     "dprint": "^0.50.1",
-    "tsx": "^4.20.3"
+    "esbuild": "^0.25.8"
   }
 }

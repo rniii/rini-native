@@ -1,5 +1,5 @@
-import { fromEntries, lazyPromise, toBigInt } from "@/utils";
-import type { FileHandle } from "fs/promises";
+import { fromEntries, lazyPromise, toBigInt } from "./utils";
+import type { FileHandle } from "node:fs/promises";
 import type { ParsedBitfield } from "./Bitfield";
 import {
   functionSourceEntry,

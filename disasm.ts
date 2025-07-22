@@ -7,7 +7,7 @@ const file = await readFile(await open("base/assets/index.android.bundle"));
 const parser = parseFile(file);
 const functions = await parser.functionHeaders;
 const strings = await parser.stringStorage;
-const func = functions[5];
+const func = functions[10];
 
 console.log(
   functions.map((f, i) => f.functionName != 255 && [i, strings[f.functionName]]).filter(x => x).slice(0, 128),
@@ -126,14 +126,32 @@ function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Bu
       }).join("") + "─";
 
       lanes[j] = jumpSources[addr];
+    } else if (jumpTargets[addr] && jumpTargets[addr] > addr) {
+      j = lanes.findLastIndex(x => x == null || x == jumpTargets[addr]);
+
+      prefix = lanes.map((lane, i) => {
+        if (i == j) return lane == null ? "┌" : "├";
+        if (i > j) return lane == null ? "─" : "┼";
+        return lane == null ? " " : "│";
+      }).join("") + "→";
+
+      lanes[j] = addr;
     } else if (jumpTargets[addr] && (j = lanes.indexOf(addr)) >= 0) {
+      lanes[j] = null;
+
       prefix = lanes.map((lane, i) => {
         if (i == j) return "└";
         if (i > j) return lane == null ? "─" : "┼";
         return lane == null ? " " : "│";
       }).join("") + "→";
+    } else if (jumpSources[addr] && (j = lanes.indexOf(jumpSources[addr])) >= 0) {
+      if (addr == jumpTargets[jumpSources[addr]]) lanes[j] = null;
 
-      lanes[j] = null;
+      prefix = lanes.map((lane, i) => {
+        if (i == j) return lane == null ? "└" : "├";
+        if (i > j) return lane == null ? "─" : "┼";
+        return lane == null ? " " : "│";
+      }).join("") + "─";
     } else {
       prefix = lanes.map(lane => lane == null ? " " : "│").join("") + " ";
     }

@@ -96,4 +96,4 @@ export class Bitfield<K extends string> {
   }
 }
 
-export type ParsedBitfield<T extends Bitfield<string>> = T['fields']
+export type ParsedBitfield<T extends Bitfield<string>> = T["fields"];

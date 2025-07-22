@@ -1,5 +1,6 @@
 import { fromEntries, lazyPromise, toBigInt } from "@/utils";
 import type { FileHandle } from "fs/promises";
+import type { ParsedBitfield } from "./Bitfield";
 import {
   functionSourceEntry,
   identifierHash,
@@ -9,7 +10,6 @@ import {
   stringKind,
   stringTableEntry,
 } from "./bitfields";
-import type { ParsedBitfield } from "./Bitfield"
 
 export async function readHeader(handle: FileHandle) {
   const MAGIC = 0x1F1903C103BC1FC6n;
@@ -114,27 +114,27 @@ export function parseFile(file: BytecodeFile) {
     functionHeaders: lazyPromise(async () => {
       const table: ParsedBitfield<typeof smallFunctionHeader>[] = await parser.smallFunctionHeaders;
 
-      const range: [number, number] = [Infinity, 0]
+      const range: [number, number] = [Infinity, 0];
       for (const smallHeader of table) {
-        if (!smallHeader.overflowed) continue
+        if (!smallHeader.overflowed) continue;
 
-        const largeOffset = (smallHeader.infoOffset * 0x10000) | smallHeader.offset
-        range[0] = Math.min(range[0], largeOffset)
-        range[1] = Math.max(range[1], largeOffset + largeFunctionHeader.byteSize)
+        const largeOffset = (smallHeader.infoOffset * 0x10000) | smallHeader.offset;
+        range[0] = Math.min(range[0], largeOffset);
+        range[1] = Math.max(range[1], largeOffset + largeFunctionHeader.byteSize);
       }
 
-      let buffer = Buffer.alloc(0)
+      let buffer = Buffer.alloc(0);
       if (Number.isFinite(range[0])) {
-        buffer = Buffer.alloc(range[1] - range[0])
-        await file.handle.read(buffer, 0, buffer.length, range[0])
+        buffer = Buffer.alloc(range[1] - range[0]);
+        await file.handle.read(buffer, 0, buffer.length, range[0]);
       }
 
       return Array.from({ length: file.header.functionCount }, (_, i) => {
         const smallHeader = table[i];
-        if (!smallHeader.overflowed) return smallHeader
+        if (!smallHeader.overflowed) return smallHeader;
 
-        const largeOffset = ((smallHeader.infoOffset * 0x10000) | smallHeader.offset) - range[0]
-        return largeFunctionHeader.parse(buffer.subarray(largeOffset, largeOffset + largeFunctionHeader.byteSize))
+        const largeOffset = ((smallHeader.infoOffset * 0x10000) | smallHeader.offset) - range[0];
+        return largeFunctionHeader.parse(buffer.subarray(largeOffset, largeOffset + largeFunctionHeader.byteSize));
       });
     }),
     stringKinds: lazyPromise(async () => {

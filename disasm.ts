@@ -117,7 +117,6 @@ function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Bu
 
     if (jumpSources[addr] && jumpSources[addr] > addr) {
       j = lanes.findLastIndex(x => x == null);
-      prefix = j < 0 ? "┄" + "─".repeat(lanes.length) : "┌" + "─".repeat(6 - j);
 
       prefix = lanes.map((lane, i) => {
         if (i == j) return "┌";

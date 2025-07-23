@@ -94,7 +94,7 @@ function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Bu
   const pointers = jumpSources.map((to, from) => ({ from: addr2line[from], to: addr2line[to] })).filter(n => n != null);
   const gutter = drawGutter(lines.length, pointers, { colors: true, curved: true });
 
-  lines = lines.map((line, i) => `${addresses[i].toString(16).padStart(8, '0')} ${gutter[i]} ${line}`);
+  lines = lines.map((line, i) => `${addresses[i].toString(16).padStart(8, "0")} ${gutter[i]} ${line}`);
 
   return `${mangled}(${params}):\n`
     + lines.join("\n");

@@ -40,7 +40,7 @@ const CURVED: Record<string, string> = {
   "┐": "╮",
   "┘": "╯",
   "└": "╰",
-}
+};
 
 export type GutterTile =
   | {
@@ -187,7 +187,7 @@ export function drawGutter(length: number, pointers: Pointer[], opts: GutterOpti
   }
 
   function drawTile(tile: GutterTile, sprite = SPRITES[tile.type]) {
-    if (opts.curved) sprite = CURVED[sprite] ?? sprite
+    if (opts.curved) sprite = CURVED[sprite] ?? sprite;
     if (opts.colors && tile.dest != null) {
       sprite = getColor(tile.dest) + sprite + RESET;
     }

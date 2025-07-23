@@ -92,6 +92,9 @@ function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Bu
   }
 
   const pointers = jumpSources.map((to, from) => ({ from: addr2line[from], to: addr2line[to] })).filter(n => n != null);
+  if (pointers.some(({ from, to }) => from == null || to == null)) {
+    throw new Error("Cannot draw pointers: some addresses undefined");
+  }
   const gutter = drawGutter(lines.length, pointers, { colors: true, curved: true });
 
   lines = lines.map((line, i) => `${addresses[i].toString(16).padStart(8, "0")} ${gutter[i]} ${line}`);

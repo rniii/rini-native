@@ -35,6 +35,13 @@ const SPRITES = [
   ["┐", "┤", "┬", "┼"],
 ].flat().join("");
 
+const CURVED: Record<string, string> = {
+  "┌": "╭",
+  "┐": "╮",
+  "┘": "╯",
+  "└": "╰",
+}
+
 export type GutterTile =
   | {
     type: GutterTileType.EMPTY;
@@ -48,6 +55,7 @@ export type GutterTile =
 export type Pointer = { from: number; to: number };
 export type GutterOptions = {
   colors?: boolean;
+  curved?: boolean;
 };
 
 export function drawGutter(length: number, pointers: Pointer[], opts: GutterOptions = {}): string[] {
@@ -69,7 +77,7 @@ export function drawGutter(length: number, pointers: Pointer[], opts: GutterOpti
     const lane = lanes[laneIdx];
 
     if (lane[pointer.from].dest === pointer.to) return true;
-    if (ends[pointer.from].type !== GutterTileType.EMPTY) throw new Error("Recursive pointer");
+    // if (ends[pointer.from].type !== GutterTileType.EMPTY) throw new Error("Recursive pointer");
 
     const delta = Math.sign(pointer.to - pointer.from);
     for (let y = pointer.from; y !== pointer.to; y += delta) {
@@ -93,10 +101,12 @@ export function drawGutter(length: number, pointers: Pointer[], opts: GutterOpti
     const forwards = delta === 1 ? GutterTileType.BOTTOM : GutterTileType.TOP;
     const backwards = delta === 1 ? GutterTileType.TOP : GutterTileType.BOTTOM;
 
-    ends[pointer.from] = {
-      type: GutterTileType.X,
-      dest: pointer.to,
-    };
+    if (ends[pointer.from].type === GutterTileType.EMPTY) {
+      ends[pointer.from] = {
+        type: GutterTileType.X,
+        dest: pointer.to,
+      };
+    }
 
     for (let x = 0; x <= laneIdx; x++) {
       if (lanes[x][pointer.from].type === GutterTileType.Y) {
@@ -106,7 +116,14 @@ export function drawGutter(length: number, pointers: Pointer[], opts: GutterOpti
         }
         continue;
       }
+      if (lanes[x][pointer.from].type !== GutterTileType.EMPTY) continue;
+      lanes[x][pointer.from] = {
+        type: GutterTileType.X,
+        dest: pointer.to,
+      };
     }
+
+    if (pointer.from === pointer.to) return;
 
     lane[pointer.from] = {
       type: forwards | GutterTileType.RIGHT,
@@ -139,10 +156,12 @@ export function drawGutter(length: number, pointers: Pointer[], opts: GutterOpti
       };
     }
 
-    ends[pointer.to] = {
-      type: GutterTileType.X,
-      dest: pointer.to,
-    };
+    if (ends[pointer.to].type === GutterTileType.EMPTY) {
+      ends[pointer.to] = {
+        type: GutterTileType.X,
+        dest: pointer.to,
+      };
+    }
   }
 
   const colorPool = [
@@ -168,6 +187,7 @@ export function drawGutter(length: number, pointers: Pointer[], opts: GutterOpti
   }
 
   function drawTile(tile: GutterTile, sprite = SPRITES[tile.type]) {
+    if (opts.curved) sprite = CURVED[sprite] ?? sprite
     if (opts.colors && tile.dest != null) {
       sprite = getColor(tile.dest) + sprite + RESET;
     }

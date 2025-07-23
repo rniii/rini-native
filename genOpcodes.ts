@@ -53,7 +53,7 @@ ${entries(opcodes).map(([op]) => `  ${op},`).join("\n")}
  */
 export const opcodeTypes = { // {{{
 ${entries(opcodes).map(([op, args]) => `  [Opcode.${op}]: ${stringify(args)},`).join("\n")}
-}; // }}}
+} as const; // }}}
 
 /**
  * Opcodes which have operands referring to the bigint table.
@@ -75,6 +75,8 @@ ${entries(functionOps).map(([op, args]) => `  [Opcode.${op}]: ${stringify(args)}
 export const stringOperands = { // {{{
 ${entries(stringOps).map(([op, args]) => `  [Opcode.${op}]: ${stringify(args)},`).join("\n")}
 } as Record<Opcode, number[]>; // }}}
+
+export type ArgumentType = typeof opcodeTypes[Opcode][number];
 
 // vim: set foldenable:
 `;

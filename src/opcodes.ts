@@ -422,7 +422,7 @@ export const opcodeTypes = { // {{{
   [Opcode.Store8]: ["Reg8", "Reg8", "Reg8"],
   [Opcode.Store16]: ["Reg8", "Reg8", "Reg8"],
   [Opcode.Store32]: ["Reg8", "Reg8", "Reg8"],
-}; // }}}
+} as const; // }}}
 
 /**
  * Opcodes which have operands referring to the bigint table.
@@ -473,5 +473,7 @@ export const stringOperands = { // {{{
   [Opcode.LoadConstStringLongIndex]: [2],
   [Opcode.CreateRegExp]: [2, 3],
 } as Record<Opcode, number[]>; // }}}
+
+export type ArgumentType = typeof opcodeTypes[Opcode][number];
 
 // vim: set foldenable:

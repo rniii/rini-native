@@ -8,7 +8,7 @@ const file = await readFile(await open("./test/index.android.bundle"));
 const parser = parseFile(file);
 const functions = await parser.functionHeaders;
 const strings = await parser.stringStorage;
-const func = functions[10];
+const func = functions[0];
 
 // console.log(
 //   functions.map((f, i) => f.functionName != 255 && [i, strings[f.functionName]]).filter(x => x).slice(0, 128),
@@ -53,17 +53,17 @@ function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Bu
 
         let value = 0, width = 0;
 
-        if (arg == "Reg32" || arg == "UInt32") {
+        if (arg === "Reg32" || arg === "UInt32" || arg === "Imm32") {
           value = buf.readUint32LE(i), width = 4;
-        } else if (arg == "Addr32") {
+        } else if (arg === "Addr32") {
           value = buf.readInt32LE(i), width = 4;
-        } else if (arg == "UInt16") {
+        } else if (arg === "UInt16") {
           value = buf.readUint16LE(i), width = 2;
-        } else if (arg == "Reg8" || arg == "UInt8") {
+        } else if (arg === "Reg8" || arg === "UInt8") {
           value = buf.readUint8(i), width = 1;
-        } else if (arg == "Addr8") {
+        } else if (arg === "Addr8") {
           value = buf.readInt8(i), width = 1;
-        } else if (arg == "Double") {
+        } else if (arg === "Double") {
           value = buf.readDoubleLE(i), width = 8;
         }
 

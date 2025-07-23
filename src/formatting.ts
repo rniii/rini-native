@@ -69,7 +69,7 @@ export function drawGutter(length: number, pointers: Pointer[], opts: GutterOpti
     const lane = lanes[laneIdx];
 
     if (lane[pointer.from].dest === pointer.to) return true;
-    if (lane[pointer.from].dest === pointer.from) throw new Error("Recursive pointer");
+    if (ends[pointer.from].type !== GutterTileType.EMPTY) throw new Error("Recursive pointer");
 
     const delta = Math.sign(pointer.to - pointer.from);
     for (let y = pointer.from; y !== pointer.to; y += delta) {

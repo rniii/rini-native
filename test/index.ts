@@ -1,5 +1,5 @@
-import { largeFunctionHeader, smallFunctionHeader } from "@/bitfields";
-import { parseFile, readFile } from "@/parser";
+import { largeFunctionHeader, smallFunctionHeader } from "../src/bitfields";
+import { parseFile, readFile, readHeader } from "../src/parser";
 import { open } from "node:fs/promises";
 import { instrument, measureProfile } from "./profiling";
 
@@ -9,6 +9,9 @@ largeFunctionHeader.parse = instrument("largeFunctionHeader", largeFunctionHeade
 await using profile = await measureProfile("./test/profile.cpuprofile");
 
 const bundleHandle = await open("./test/index.android.bundle");
+
+console.table(await readHeader(bundleHandle))
+
 const file = await readFile(bundleHandle);
 const parsed = parseFile(file);
 

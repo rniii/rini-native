@@ -1,8 +1,8 @@
-import type { largeFunctionHeader } from "@/bitfields";
-import { CYAN, drawGutter, GREEN, PURPLE, RED, RESET } from "@/formatting";
-import { Opcode, opcodeTypes, stringOperands } from "@/opcodes";
-import { parseFile, readFile } from "@/parser";
 import { open } from "fs/promises";
+import type { largeFunctionHeader } from "./decompiler/src/bitfields";
+import { CYAN, drawGutter, GREEN, PURPLE, RED, RESET } from "./src/formatting";
+import { functionOperands, Opcode, opcodeTypes, stringOperands } from "./src/opcodes";
+import { parseFile, readFile } from "./src/parser";
 
 const file = await readFile(await open("./test/index.android.bundle"));
 const parser = parseFile(file);

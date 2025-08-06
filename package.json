@@ -1,7 +1,9 @@
 {
   "type": "module",
   "scripts": {
-    "test": "esbuild ./test --bundle --platform=node --format=esm --sourcemap=inline | node --enable-source-maps -",
+    "dev": "pnpm -C explorer exec vite",
+    "pretest": "esbuild ./test/index.js --outdir=dist/test --bundle --platform=node --format=esm --packages=external --sourcemap",
+    "test": "node ./dist/test/index.js",
     "lint": "dprint check",
     "lint:fix": "dprint fmt"
   },

@@ -1,6 +1,7 @@
-import type { ParsedBitfield } from "@/Bitfield";
-import { fromEntries, lazyPromise, toBigInt } from "@/utils";
 import type { FileHandle } from "node:fs/promises";
+import { parseHeader, segmentFile } from "../decompiler/src";
+import { entries, fromEntries, lazyPromise, toBigInt } from "../utils";
+import type { ParsedBitfield } from "../decompiler/src/Bitfield";
 import {
   functionSourceEntry,
   identifierHash,
@@ -9,94 +10,29 @@ import {
   smallFunctionHeader,
   stringKind,
   stringTableEntry,
-} from "./bitfields";
+} from "../decompiler/src/bitfields";
 
 export async function readHeader(handle: FileHandle) {
-  const MAGIC = 0x1F1903C103BC1FC6n;
+  const data = Buffer.alloc(128);
+  await handle.read(data, 0, 128, 0);
 
-  let i = 0;
-  const buffer = Buffer.alloc(128);
-  await handle.read(buffer, 0, 128, 0);
-
-  const read64 = () => {
-    let v = buffer.readBigInt64LE(i);
-    return i += 8, v;
-  };
-  const read32 = () => {
-    let v = buffer.readInt32LE(i);
-    return i += 4, v;
-  };
-  const read8 = () => buffer.readInt8(i++);
-  const readHash = () => {
-    let v = buffer.subarray(i, i += 20);
-    return v;
-  };
-
-  console.assert(read64() == MAGIC, "Not a Hermes bytecode file");
-
-  return {
-    version: read32(),
-    sourceHash: readHash().toString("hex"),
-    ...fromEntries(([
-      "fileLength",
-      "globalCodeIndex",
-      "functionCount",
-      "stringKindCount",
-      "identifierCount",
-      "stringCount",
-      "overflowStringCount",
-      "stringStorageSize",
-      "bigIntCount",
-      "bigIntStorageSize",
-      "regExpCount",
-      "regExpStorageSize",
-      "arrayBufferSize",
-      "objKeyBufferSize",
-      "objValueBufferSize",
-      "segmentID",
-      "cjsModuleCount",
-      "functionSourceCount",
-      "debugInfoOffset",
-    ] as const).map(k => [k, read32()])),
-    options: read8().toString(8).padStart(8, "0"),
-  };
+  return parseHeader(data.buffer);
 }
 
 export async function readFile(handle: FileHandle) {
   const header = await readHeader(handle);
+  const segments = fromEntries(
+    entries(segmentFile(header)).map(([name, [offset, size]]) => [
+      name,
+      lazyPromise(async () => {
+        const buf = Buffer.alloc(size);
+        await handle.read(buf, 0, size, offset);
+        return buf;
+      }),
+    ])
+  );
 
-  let i = 128;
-  const segment = (size: number) => {
-    const segmentOffset = i;
-    i += size;
-    return lazyPromise(async () => {
-      const buf = Buffer.alloc(size);
-      await handle.read(buf, 0, size, segmentOffset);
-      return buf;
-    });
-  };
-
-  return {
-    header,
-    handle,
-    segments: {
-      functionHeaders: segment(header.functionCount * smallFunctionHeader.byteSize),
-      stringKinds: segment(header.stringKindCount * stringKind.byteSize),
-      identifierHashes: segment(header.identifierCount * identifierHash.byteSize),
-      stringTable: segment(header.stringCount * stringTableEntry.byteSize),
-      overflowStringTable: segment(header.overflowStringCount * offsetLengthPair.byteSize),
-      stringStorage: segment(header.stringStorageSize),
-      arrayBuffer: segment(header.arrayBufferSize),
-      objectKeyBuffer: segment(header.objKeyBufferSize),
-      objectValueBuffer: segment(header.objValueBufferSize),
-      bigIntTable: segment(header.bigIntCount * offsetLengthPair.byteSize),
-      bigIntStorage: segment(header.bigIntStorageSize),
-      regExpTable: segment(header.regExpCount * offsetLengthPair.byteSize),
-      regExpStorage: segment(header.regExpStorageSize),
-      cjsModuleTable: segment(header.cjsModuleCount * offsetLengthPair.byteSize),
-      functionSourceTable: segment(header.functionSourceCount * functionSourceEntry.byteSize),
-    },
-  };
+  return { header, handle, segments };
 }
 
 export type BytecodeFile = Awaited<ReturnType<typeof readFile>>;

@@ -2,3 +2,5 @@ node_modules
 
 *.android.bundle
 *.cpuprofile
+
+dist/

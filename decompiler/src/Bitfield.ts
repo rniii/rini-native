@@ -1,5 +1,7 @@
-import { type CustomInspectFunction, inspect } from "util";
-import { entries, fromEntries, hasOwn, padSize } from "./utils";
+import type { CustomInspectFunction } from "node:util";
+import { entries, fromEntries, hasOwn, padSize } from "../../utils";
+
+const inspectCustom = Symbol.for("nodejs.util.inspect.custom");
 
 export type BitfieldSegment = {
   size: number;
@@ -7,6 +9,7 @@ export type BitfieldSegment = {
   cursor: { byte: number; bit: number };
   shift: number;
 };
+
 export class Bitfield<K extends string> {
   bitSize: number;
   byteSize: number;
@@ -62,14 +65,14 @@ export class Bitfield<K extends string> {
     const uncomputedInspect: CustomInspectFunction = (depth, options) => options.stylize("(uncomputed)", "undefined");
     const lazyInpsect: CustomInspectFunction = (depth, options) => {
       if (depth < 0) return options.stylize("[Bitfield]", "special");
-      const UNCOMPUTED_VALUE = { [inspect.custom]: uncomputedInspect };
+      const UNCOMPUTED_VALUE = { [inspectCustom]: uncomputedInspect };
       return fromEntries(
         entries(this.fields).map(([field]) => [field, hasOwn(cached, field) ? cached[field] : UNCOMPUTED_VALUE]),
       );
     };
 
     // @ts-expect-error
-    cached[inspect.custom] = lazyInpsect;
+    cached[inspectCustom] = lazyInpsect;
 
     return new Proxy(cached, {
       get: (target, prop) => {
@@ -80,6 +83,11 @@ export class Bitfield<K extends string> {
       },
       ownKeys: () => Object.keys(this.fields),
       has: (target, prop) => Object.hasOwn(this.fields, prop),
+      getOwnPropertyDescriptor: (target, prop) => {
+        if (!hasOwn(this.fields, prop)) return undefined;
+        if (target[prop] == null) target[prop] = this.parseField(buffer, prop);
+        return Reflect.getOwnPropertyDescriptor(cached, prop);
+      },
     }) as Record<K, number>;
   }
 

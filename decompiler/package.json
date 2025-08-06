@@ -1,0 +1,5 @@
+{
+  "type": "module",
+  "name": "decompiler",
+  "exports": "./src/index.ts"
+}

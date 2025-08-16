@@ -82,7 +82,7 @@ const src = dedent`\
 
   export type ArgumentType = typeof opcodeTypes[Opcode][number];
 
-  // vim: set foldenable:
+  // vim\: set foldenable:
 `;
 
 writeFile("src/opcodes.ts", src);

@@ -1,4 +1,4 @@
-import { transpose } from "../utils";
+import { transpose } from "../utils/index.ts";
 
 export const ansiColor = (c?: number) => `\x1b[${c ?? ""}m`;
 export const rgbColor = (r: number, g: number, b: number) => `\x1b[38;2;${r};${g};${b}m`;

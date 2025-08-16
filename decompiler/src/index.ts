@@ -1,4 +1,4 @@
-import { fromEntries } from "../../utils";
+import { fromEntries, mapValues, padSize } from "../../utils/index.ts";
 import {
   functionSourceEntry,
   identifierHash,
@@ -6,17 +6,21 @@ import {
   smallFunctionHeader,
   stringKind,
   stringTableEntry,
-} from "./bitfields";
+  type SmallFunctionHeader,
+} from "./bitfields.ts";
+
+export const HERMES_SIGNATURE = 0x1F1903C103BC1FC6n;
 
 export function parseHeader(buffer: ArrayBuffer) {
-  const MAGIC = 0x1F1903C103BC1FC6n;
-
   const view = new DataView(buffer);
 
-  console.assert(view.getBigUint64(0, true) == MAGIC, "Not a Hermes bytecode file");
+  if (view.getBigUint64(0, true) !== HERMES_SIGNATURE) {
+    throw Error("Not a Hermes bytecode file");
+  }
 
   return {
     version: view.getUint32(8, true),
+    // hash: new Uint8Array(view.buffer.slice(0), 12, 20),
     ...fromEntries(([
       "fileLength",
       "globalCodeIndex",
@@ -47,27 +51,36 @@ export type HermesHeader = ReturnType<typeof parseHeader>;
 export function segmentFile(header: HermesHeader) {
   let i = 128;
 
-  return fromEntries(([
-    ["functionHeaders", header.functionCount * smallFunctionHeader.byteSize],
-    ["stringKinds", header.stringKindCount * stringKind.byteSize],
-    ["identifierHashes", header.identifierCount * identifierHash.byteSize],
-    ["stringTable", header.stringCount * stringTableEntry.byteSize],
-    ["overflowStringTable", header.overflowStringCount * offsetLengthPair.byteSize],
-    ["stringStorage", header.stringStorageSize * 1],
-    ["arrayBuffer", header.arrayBufferSize * 1],
-    ["objectKeyBuffer", header.objKeyBufferSize * 1],
-    ["objectValueBuffer", header.objValueBufferSize * 1],
-    ["bigIntTable", header.bigIntCount * offsetLengthPair.byteSize],
-    ["bigIntStorage", header.bigIntStorageSize * 1],
-    ["regExpTable", header.regExpCount * offsetLengthPair.byteSize],
-    ["regExpStorage", header.regExpStorageSize * 1],
-    ["cjsModuleTable", header.cjsModuleCount * offsetLengthPair.byteSize],
-    ["functionSourceTable", header.functionSourceCount * functionSourceEntry.byteSize],
-  ] as const).map(([name, size]) => {
+  return mapValues({
+    functionHeaders: header.functionCount * smallFunctionHeader.byteSize,
+    stringKinds: header.stringKindCount * stringKind.byteSize,
+    identifierHashes: header.identifierCount * identifierHash.byteSize,
+    stringTable: header.stringCount * stringTableEntry.byteSize,
+    overflowStringTable: header.overflowStringCount * offsetLengthPair.byteSize,
+    stringStorage: header.stringStorageSize * 1,
+    arrayBuffer: header.arrayBufferSize * 1,
+    objectKeyBuffer: header.objKeyBufferSize * 1,
+    objectValueBuffer: header.objValueBufferSize * 1,
+    bigIntTable: header.bigIntCount * offsetLengthPair.byteSize,
+    bigIntStorage: header.bigIntStorageSize * 1,
+    regExpTable: header.regExpCount * offsetLengthPair.byteSize,
+    regExpStorage: header.regExpStorageSize * 1,
+    cjsModuleTable: header.cjsModuleCount * offsetLengthPair.byteSize,
+    functionSourceTable: header.functionSourceCount * functionSourceEntry.byteSize,
+  }, (size) => {
     const offset = i;
-    i += size;
-    return [name, [offset, size]];
-  }));
+    i += padSize(size);
+    return [offset, size] as [number, number];
+  });
+}
+
+export function segmentBody(header: HermesHeader, smallFunctionHeaders: SmallFunctionHeader[]) {
+  const largeFunctionHeaders = [1 / 0, 0];
+  const functionBytecode = [1 / 0, 0];
+
+  for (const header of smallFunctionHeaders) {
+    if (header) {}
+  }
 }
 
 export type HermesSegments = keyof ReturnType<typeof segmentFile>;

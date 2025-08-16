@@ -1,4 +1,4 @@
-import { Bitfield } from "./Bitfield";
+import { Bitfield, type ParsedBitfield } from "./Bitfield.ts";
 
 export const functionHeaderFlagFields = {
   prohibitInvoke: 2,
@@ -22,6 +22,8 @@ export const smallFunctionHeader = new Bitfield({
   ...functionHeaderFlagFields,
 });
 
+export type SmallFunctionHeader = ParsedBitfield<typeof smallFunctionHeader>;
+
 export const largeFunctionHeader = new Bitfield({
   offset: 32,
   paramCount: 32,
@@ -36,14 +38,20 @@ export const largeFunctionHeader = new Bitfield({
   ...functionHeaderFlagFields,
 });
 
+export type LargeFunctionHeader = ParsedBitfield<typeof largeFunctionHeader>;
+
 export const stringKind = new Bitfield({
   count: 31,
   kind: 1,
 });
 
+export type StringKind = ParsedBitfield<typeof stringKind>;
+
 export const identifierHash = new Bitfield({
   hash: 32,
 });
+
+export type IdentifierHash = ParsedBitfield<typeof identifierHash>;
 
 export const stringTableEntry = new Bitfield({
   isUtf16: 1,
@@ -51,12 +59,18 @@ export const stringTableEntry = new Bitfield({
   length: 8,
 });
 
+export type StringTableEntry = ParsedBitfield<typeof stringTableEntry>;
+
 export const offsetLengthPair = new Bitfield({
   offset: 32,
   length: 32,
 });
 
+export type OffsetLengthPair = ParsedBitfield<typeof offsetLengthPair>;
+
 export const functionSourceEntry = new Bitfield({
   functionId: 32,
   stringId: 32,
 });
+
+export type FunctionSourceEntry = ParsedBitfield<typeof functionSourceEntry>;

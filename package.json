@@ -2,8 +2,7 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm -C explorer exec vite",
-    "pretest": "esbuild ./test/index.js --outdir=dist/test --bundle --platform=node --format=esm --packages=external --sourcemap",
-    "test": "node ./dist/test/index.js",
+    "test": "node --disable-warning=ExperimentalWarning --experimental-transform-types ./test/index.ts",
     "lint": "dprint check",
     "lint:fix": "dprint fmt"
   },
@@ -11,5 +10,8 @@
     "@types/node": "^24.0.15",
     "dprint": "^0.50.1",
     "esbuild": "^0.25.8"
+  },
+  "dependencies": {
+    "decompiler": "workspace:^"
   }
 }

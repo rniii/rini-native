@@ -1,5 +1,5 @@
+import type { largeFunctionHeader } from "decompiler/bitfields";
 import { open } from "fs/promises";
-import type { largeFunctionHeader } from "./decompiler/src/bitfields.ts";
 import { CYAN, drawGutter, GREEN, PURPLE, RED, RESET } from "./src/formatting.ts";
 import { bigintOperands, functionOperands, Opcode, opcodeTypes, stringOperands } from "./src/opcodes.ts";
 import { parseFile, readFile } from "./src/parser.ts";

@@ -11,7 +11,7 @@ import {
   stringTableEntry,
 } from "decompiler/bitfields";
 import type { FileHandle } from "node:fs/promises";
-import { entries, fromEntries, lazyPromise, toBigInt } from "../utils/index.ts";
+import { lazyPromise, mapValues, toBigInt } from "../utils/index.ts";
 
 export async function readHeader(handle: FileHandle) {
   const data = new Uint8Array(128);
@@ -22,16 +22,11 @@ export async function readHeader(handle: FileHandle) {
 
 export async function readFile(handle: FileHandle) {
   const header = await readHeader(handle);
-  const segments = fromEntries(
-    entries(segmentFile(header)).map(([name, [offset, size]]) => [
-      name,
-      lazyPromise(async () => {
-        const buf = new Uint8Array(size);
-        await handle.read(buf, 0, size, offset);
-        return buf;
-      }),
-    ]),
-  );
+  const segments = mapValues(segmentFile(header), ([offset, size]) => (
+    lazyPromise(() => (
+      handle.read(new Uint8Array(size), 0, size, offset).then(r => r.buffer)
+    ))
+  ));
 
   return { header, handle, segments };
 }
@@ -54,14 +49,15 @@ export function parseFile(file: BytecodeFile) {
     functionHeaders: lazyPromise(async () => {
       const table: SmallFunctionHeader[] = await parser.smallFunctionHeaders;
 
-      const range: [number, number] = [Infinity, 0];
-      for (const smallHeader of table) {
-        if (!smallHeader.overflowed) continue;
+      const getLargeOffset = (smallHeader: SmallFunctionHeader) =>
+        ((smallHeader.infoOffset << 16) | smallHeader.offset) >>> 0;
 
-        const largeOffset = (smallHeader.infoOffset * 0x10000) | smallHeader.offset;
-        range[0] = Math.min(range[0], largeOffset);
-        range[1] = Math.max(range[1], largeOffset + largeFunctionHeader.byteSize);
-      }
+      const overflowStart = table.find(h => h.overflowed);
+      const overflowEnd = table.findLast(h => h.overflowed);
+
+      const range = overflowStart && overflowEnd
+        ? [getLargeOffset(overflowStart), getLargeOffset(overflowEnd) + largeFunctionHeader.byteSize]
+        : [Infinity, 0];
 
       let buffer = new Uint8Array(0);
       if (Number.isFinite(range[0])) {
@@ -73,7 +69,7 @@ export function parseFile(file: BytecodeFile) {
         const smallHeader = table[i];
         if (!smallHeader.overflowed) return smallHeader;
 
-        const largeOffset = ((smallHeader.infoOffset * 0x10000) | smallHeader.offset) - range[0];
+        const largeOffset = getLargeOffset(smallHeader) - range[0];
         return largeFunctionHeader.parse(buffer.subarray(largeOffset, largeOffset + largeFunctionHeader.byteSize));
       });
     }),

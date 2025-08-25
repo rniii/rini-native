@@ -1,8 +1,7 @@
 import { type HermesHeader, parseHeader, segmentBody, segmentFile } from "decompiler";
-import { offsetLengthPair, smallFunctionHeader, stringTableEntry } from "decompiler/bitfields";
+import { type Bitfield, offsetLengthPair, smallFunctionHeader, stringTableEntry } from "decompiler/bitfields";
 import { createEffect, createSignal, type JSXElement, on, type ParentProps, Show } from "solid-js";
 import { createStore } from "solid-js/store";
-import type { Bitfield } from "../../decompiler/src/Bitfield.ts";
 import { entries, formatSizeUnit, insort, mapValues } from "../../utils/index.ts";
 
 const [progress, setProgress] = createStore([0, 0]);

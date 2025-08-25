@@ -2,7 +2,7 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm -C explorer exec vite",
-    "test": "node --disable-warning=ExperimentalWarning --experimental-transform-types ./test/index.ts",
+    "test": "node ./test/index.ts",
     "lint": "dprint check",
     "lint:fix": "dprint fmt"
   },

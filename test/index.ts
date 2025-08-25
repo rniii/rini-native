@@ -15,10 +15,13 @@ const bundleHandle = await open("./test/index.android.bundle");
 const file = await readFile(bundleHandle);
 const parsed = parseFile(file);
 
+console.time("strings");
 const strings = await parsed.stringStorage;
-console.time("fnHeaders");
+console.timeEnd("strings");
+
+console.time("functions");
 const fnHeaders = await parsed.functionHeaders;
-console.timeEnd("fnHeaders");
+console.timeEnd("functions");
 
 deepStrictEqual(fnHeaders[9], {
   offset: 11019740,

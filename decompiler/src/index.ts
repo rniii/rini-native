@@ -227,6 +227,8 @@ export function createStreamReader(
 
         segment.callback(data);
         pendingSegments.shift();
+
+        await Promise.resolve();
       }
     }
   }

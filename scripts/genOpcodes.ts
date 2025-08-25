@@ -1,4 +1,4 @@
-import { dedent, entries } from "../utils";
+import { dedent, entries } from "../utils/index.ts";
 import { writeFile } from "fs/promises";
 
 // TODO: the bytecode version matches, but I don't know which RN version discord uses
@@ -8,7 +8,7 @@ const OPCODE_RE = /^DEFINE_(\S+)_(\d)\((.*)\)$/gm;
 const OPERAND_RE = /^OPERAND_(\S+)_ID\((.*)\)/gm;
 
 const opcodes = {} as Record<string, string[]>;
-const bigintOps = {} as Record<string, number[]>;
+const bigIntOps = {} as Record<string, number[]>;
 const functionOps = {} as Record<string, number[]>;
 const stringOps = {} as Record<string, number[]>;
 
@@ -31,7 +31,7 @@ for (const [, dir, count, operands] of listing.matchAll(OPCODE_RE)) {
 for (const [, dir, operands] of listing.matchAll(OPERAND_RE)) {
   const [name, idx] = operands.split(/, */);
 
-  if (dir == "BIGINT") (bigintOps[name] ??= []).push(+idx);
+  if (dir == "BIGINT") (bigIntOps[name] ??= []).push(+idx);
   else if (dir == "FUNCTION") (functionOps[name] ??= []).push(+idx);
   else if (dir == "STRING") (stringOps[name] ??= []).push(+idx);
   else throw Error(`Unknown definition: ${dir}`);
@@ -62,8 +62,8 @@ const src = dedent`\
   /**
    * Opcodes which have operands referring to the bigint table.
    */
-  export const bigintOperands = { // {{{
-  ${entries(bigintOps).map(([op, args]) => `  [Opcode.${op}]: ${stringify(args)},`).join("\n")}
+  export const bigIntOperands = { // {{{
+  ${entries(bigIntOps).map(([op, args]) => `  [Opcode.${op}]: ${stringify(args)},`).join("\n")}
   } as Record<Opcode, number[]>; // }}}
 
   /**
@@ -85,4 +85,4 @@ const src = dedent`\
   // vim\: set foldenable:
 `;
 
-writeFile("src/opcodes.ts", src);
+writeFile("decompiler/src/opcodes.ts", src);

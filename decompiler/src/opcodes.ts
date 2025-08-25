@@ -427,7 +427,7 @@ export const opcodeTypes = { // {{{
 /**
  * Opcodes which have operands referring to the bigint table.
  */
-export const bigintOperands = { // {{{
+export const bigIntOperands = { // {{{
   [Opcode.LoadConstBigInt]: [2],
   [Opcode.LoadConstBigIntLongIndex]: [2],
 } as Record<Opcode, number[]>; // }}}

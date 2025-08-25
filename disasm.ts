@@ -1,24 +1,21 @@
-import type { largeFunctionHeader } from "decompiler/bitfields";
+import type { LargeFunctionHeader } from "decompiler/bitfields";
 import { open } from "fs/promises";
 import { CYAN, drawGutter, GREEN, PURPLE, RED, RESET } from "./src/formatting.ts";
-import { bigintOperands, functionOperands, Opcode, opcodeTypes, stringOperands } from "./src/opcodes.ts";
-import { parseFile, readFile } from "./src/parser.ts";
+import { bigIntOperands, functionOperands, Opcode, opcodeTypes, stringOperands } from "./decompiler/src/opcodes.ts";
+import { parseFile } from "decompiler";
 
-const file = await readFile(await open("./test/sample.hbc"));
-const parser = parseFile(file);
-const functions = await parser.functionHeaders;
-const strings = await parser.stringStorage;
-const bigints = await parser.bigIntStorage;
+const file = await open("./test/index.android.bundle");
+
+const hermes = await parseFile((_, byteOffset, byteLength, callback) => {
+});
 
 // console.table(file.header)
 
-for (const func of functions) {
-  const buf = Buffer.alloc(func.bytecodeSizeInBytes);
-  await file.handle.read(buf, 0, func.bytecodeSizeInBytes, func.offset);
-  console.log(disassemble(func, buf));
-}
-
-await file.handle.close();
+// for (const func of functions) {
+//   const buf = Buffer.alloc(func.bytecodeSizeInBytes);
+//   await file.handle.read(buf, 0, func.bytecodeSizeInBytes, func.offset);
+//   console.log(disassemble(func, buf));
+// }
 
 // console.table(functions.reduce((a, b) => a.bytecodeSizeInBytes > b.bytecodeSizeInBytes ? a : b))
 
@@ -26,7 +23,7 @@ await file.handle.close();
 // await file.handle.read(buf, 0, 678661, 27117765);
 // console.log(disassemble(functions[0], buf));
 
-// const func = functions[9];
+// const func = hermes.functions[9];
 // const buf = Buffer.alloc(func.bytecodeSizeInBytes);
 // await file.handle.read(buf, 0, func.bytecodeSizeInBytes, func.offset);
 // console.log(disassemble(func, buf));
@@ -43,8 +40,8 @@ await file.handle.close();
 // }
 
 // this is bad
-function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Buffer) {
-  const name = strings[func.functionName] || "<closure>";
+function disassemble(func: LargeFunctionHeader, buf: Buffer) {
+  const name = hermes.strings[func.functionName] || "<closure>";
   const addr = "0x" + func.offset.toString(16).padStart(8, "0");
   const mangled = `${CYAN}${name}@${GREEN}${addr}${RESET}`;
   const params = Array.from(Array(func.paramCount), (_, i) => `r${i}`).join(", ");
@@ -104,11 +101,11 @@ function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Bu
           jumpSources[ip] = addr;
           jumpTargets[addr] = ip;
         } else if (stringOperands[op]?.includes(j + 1)) {
-          src += ` ${JSON.stringify(strings[value])}`;
+          src += ` ${JSON.stringify(hermes.strings[value])}`;
         } else if (functionOperands[op]?.includes(j + 1)) {
-          src += ` ${strings[functions[value].functionName]}#${value}`;
-        } else if (bigintOperands[op]?.includes(j + 1)) {
-          src += ` ${bigints[value]}n`;
+          src += ` ${hermes.strings[hermes.functions[value].functionName]}#${value}`;
+        } else if (bigIntOperands[op]?.includes(j + 1)) {
+          src += ` ${hermes.bigInts[value]}n`;
         } else {
           src += ` ${value}`;
         }

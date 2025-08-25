@@ -1,8 +1,7 @@
-import { smallFunctionHeader } from "../decompiler/src/bitfields.ts";
-import { parseHeader, segmentBody, segmentFile } from "../decompiler/src/index.ts";
-import { entries } from "../utils/index.ts";
+import { type HermesHeader, type HermesSegments, parseFile } from "decompiler";
+import { padSize } from "../utils/index.ts";
 
-const file = Buffer.from(
+const data = new Uint8Array(Buffer.from(
   `
     xh+8A8EDGR9gAAAAOmSrCmxctJU4IRJ2apSp0zTITUJdAQAAAAAAAAEAAAACAAAAAgAAAAQAAAAA
     AAAAEgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADoAAAAAAAAAAAA
@@ -13,57 +12,43 @@ const file = Buffer.from(
     Zsz6XlzlDw==
   `,
   "base64",
-);
-const buf = new Uint8Array(file).buffer;
+));
 
-const header = parseHeader(buf);
-const segments = segmentFile(header);
-const functions = Array.from(
-  Array(header.functionCount),
-  (_, i) => smallFunctionHeader.parseElement(new Uint8Array(buf, ...segments.functionHeaders), i),
-);
+const file = await parseFile((_, byteOffset, byteLength, callback) => {
+  callback(data.subarray(byteOffset, byteOffset + byteLength));
+});
 
-console.log(functions);
+console.log(data);
+console.log(dumpFile(file));
 
-const funch = {
-  offset: 196,
-  paramCount: 1,
-  bytecodeSizeInBytes: 24,
-  functionName: 1,
-  infoOffset: 220,
-  frameSize: 11,
-  environmentSize: 0,
-  highestReadCacheIndex: 2,
-  highestWriteCacheIndex: 0,
-  prohibitInvoke: 2,
-  strictMode: 0,
-  hasExceptionHandler: 0,
-  hasDebugInfo: 1,
-  overflowed: 0,
-};
-
-const b = new Uint8Array(32);
-const view = new DataView(b.buffer);
-
-let bit = 0;
-for (const [segment, size] of entries(smallFunctionHeader.fields)) {
-  let div = bit / 8 | 0;
-  let rem = bit % 8;
-
-  let word = view.getInt32(div, true);
-  word |= (funch[segment]) << rem;
-  view.setInt32(div, word, true);
-
-  bit += size;
-}
-
-// console.log(smallFunctionHeader.parse(b));
-
-function dumpFile() {
-  const header = new Uint8Array(128);
-
-  return [
-    header,
-    ...Object.values(segments).map(x => new Uint8Array(buf, ...x)),
+function dumpFile(file: {
+  header: HermesHeader;
+  segments: Record<HermesSegments, Uint8Array>;
+}) {
+  const parts = [
+    new Uint8Array(128),
+    ...Object.values(file.segments),
   ];
+
+  const size = parts.reduce((acc, x) => acc + padSize(x.byteLength), 0);
+  const data = new Uint8Array(size);
+  const view = new DataView(data.buffer);
+
+  const header: HermesHeader = {
+    ...file.header,
+    fileLength: size,
+  };
+
+  let i = 8;
+  for (const field in header) {
+    if (field === "hash") {
+      data.set(header[field], i);
+      i += 20;
+    } else {
+      view.setUint32(i, (header as any)[field], true);
+      i += 4;
+    }
+  }
+
+  return data;
 }

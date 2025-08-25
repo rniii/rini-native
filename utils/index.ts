@@ -94,31 +94,3 @@ export function formatSizeUnit(bytes: number) {
 
   return bytes + units.shift()!;
 }
-
-/** A version of {@link DataView} that defaults to little-endian */
-export class DataViewLE extends DataView {
-  static {
-    const DATAVIEW_METHODS = [
-      "BigUint64",
-      "BigInt64",
-      "Uint32",
-      "Int32",
-      "Uint16",
-      "Int16",
-      "Float64",
-      "Float32",
-    ] as const;
-
-    for (const method of DATAVIEW_METHODS) {
-      Object.assign(this.prototype, {
-        [`get${method}`](byteOffset: number, littleEndian = true) {
-          // @ts-expect-error dumb
-          return DataView.prototype[`get${method}`].call(this, byteOffset, littleEndian) as any;
-        },
-        [`set${method}`](byteOffset: number, value: any, littleEndian = true) {
-          DataView.prototype[`set${method}`].call(this, byteOffset, value, littleEndian);
-        },
-      });
-    }
-  }
-}

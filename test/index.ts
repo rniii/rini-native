@@ -1,6 +1,6 @@
+import { createStreamReader, parseFile } from "decompiler";
 import { deepStrictEqual } from "node:assert";
 import { open } from "node:fs/promises";
-import { parseFile, readFile } from "../src/parser.ts";
 import { measureProfile } from "./profiling.ts";
 
 // smallFunctionHeader.parse = instrument("smFunc", smallFunctionHeader.parse.bind(smallFunctionHeader));
@@ -9,21 +9,15 @@ import { measureProfile } from "./profiling.ts";
 await using profile = await measureProfile("./test/profile.cpuprofile");
 
 const bundleHandle = await open("./test/index.android.bundle");
+const { size } = await bundleHandle.stat();
 
-// console.table(await readHeader(bundleHandle))
+const { reader } = createStreamReader(bundleHandle.readableWebStream() as any, size, () => {});
 
-const file = await readFile(bundleHandle);
-const parsed = parseFile(file);
+console.time("parse");
+const parsed = await parseFile(reader);
+console.timeEnd("parse");
 
-console.time("strings");
-const strings = await parsed.stringStorage;
-console.timeEnd("strings");
-
-console.time("functions");
-const fnHeaders = await parsed.functionHeaders;
-console.timeEnd("functions");
-
-deepStrictEqual(fnHeaders[9], {
+deepStrictEqual(parsed.functionHeaders[9], {
   offset: 11019740,
   paramCount: 2,
   bytecodeSizeInBytes: 101,

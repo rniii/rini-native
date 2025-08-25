@@ -1,15 +1,12 @@
 {
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
     "strict": true,
     "verbatimModuleSyntax": true,
     "jsx": "preserve",
     "module": "ESNext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "nodenext",
     "noEmit": true,
-    "target": "ESNext",
-
-    "paths": {
-      "@/*": [ "./src/*" ]
-    }
+    "target": "ESNext"
   }
 }

@@ -1,7 +1,8 @@
 {
   "type": "module",
   "scripts": {
-    "test": "esbuild ./test --bundle --platform=node --format=esm --sourcemap=inline | node --enable-source-maps -",
+    "dev": "pnpm -C explorer exec vite",
+    "test": "node ./test/index.ts",
     "lint": "dprint check",
     "lint:fix": "dprint fmt"
   },
@@ -9,5 +10,8 @@
     "@types/node": "^24.0.15",
     "dprint": "^0.50.1",
     "esbuild": "^0.25.8"
+  },
+  "dependencies": {
+    "decompiler": "workspace:^"
   }
 }

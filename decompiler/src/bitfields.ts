@@ -22,8 +22,6 @@ export const smallFunctionHeader = new Bitfield({
   ...functionHeaderFlagFields,
 });
 
-export type SmallFunctionHeader = ParsedBitfield<typeof smallFunctionHeader>;
-
 export const largeFunctionHeader = new Bitfield({
   offset: 32,
   paramCount: 32,
@@ -38,7 +36,7 @@ export const largeFunctionHeader = new Bitfield({
   ...functionHeaderFlagFields,
 });
 
-export type LargeFunctionHeader = ParsedBitfield<typeof largeFunctionHeader>;
+export type FunctionHeader = ParsedBitfield<typeof largeFunctionHeader>;
 
 export const stringKind = new Bitfield({
   count: 31,

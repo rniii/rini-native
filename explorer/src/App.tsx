@@ -1,4 +1,4 @@
-import { createStreamReader, type HermesHeader, parseFile, type PendingSegment } from "decompiler";
+import { createStreamReader, type BytecodeModule, parseModule, type PendingSegment } from "decompiler";
 import { createSignal, Show } from "solid-js";
 import { createStore } from "solid-js/store";
 import { formatSizeUnit } from "../../utils/index.ts";
@@ -6,9 +6,7 @@ import { formatSizeUnit } from "../../utils/index.ts";
 const [progress, setProgress] = createStore([0, 0]);
 
 interface BundleInfo {
-  header: HermesHeader;
-  buffer: ArrayBuffer;
-  strings: string[];
+  hermes: BytecodeModule;
   parseTime: number;
 }
 
@@ -17,20 +15,30 @@ const [bundleInfo, setBundleInfo] = createSignal<BundleInfo>();
 const BundleView = (bundle: BundleInfo) => {
   return (
     <div>
-      Hermes file v{bundle.header.version} ({bundle.parseTime}ms) <br />
-      {formatSizeUnit(bundle.header.fileLength)}
+      Hermes file v{bundle.hermes.header.version} ({bundle.parseTime}ms) <br />
+      {formatSizeUnit(bundle.hermes.header.fileLength)}
     </div>
   );
 };
 
 export const App = () => {
   const Progress = () => {
-    const currentTask = () => (progress[0], pendingSegments[0] ?? { name: "Unknown" });
+    const message = () => {
+      void progress[0];
+
+      if (!pendingSegments[0] || pendingSegments[0].byteOffset > progress[0]) {
+        return "Reading";
+      }
+      if (pendingSegments[0].byteOffset + pendingSegments[0].byteLength > progress[0]) {
+        return `Reading ${pendingSegments[0].name}`;
+      }
+      return `Parsing ${pendingSegments[0].name}`;
+    };
 
     return (
       <div>
         <progress value={progress[0]} max={progress[1]} /> <br />
-        {currentTask().name} {progress.map(formatSizeUnit).join("/")}
+        {message()} {progress.map(formatSizeUnit).join("/")}
       </div>
     );
   };
@@ -80,6 +88,8 @@ const HexView = (props: { start?: number; bytes: Uint8Array }) => {
 let pendingSegments = [] as PendingSegment[];
 
 queueMicrotask(async () => {
+  const startTime = performance.now();
+
   const file = await fetch("index.android.bundle");
   const fileSize = +file.headers.get("Content-Length")!;
 
@@ -88,5 +98,12 @@ queueMicrotask(async () => {
     setProgress([offset, fileSize]);
   }));
 
-  await parseFile(reader);
+  const hermes = await parseModule(reader);
+
+  console.log(hermes);
+
+  setBundleInfo({
+    hermes,
+    parseTime: performance.now() - startTime,
+  });
 });

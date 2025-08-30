@@ -1,23 +1,22 @@
-import { createStreamReader, parseFile } from "decompiler";
+import { createStreamReader, parseModule } from "decompiler";
 import { deepStrictEqual } from "node:assert";
 import { open } from "node:fs/promises";
-import { measureProfile } from "./profiling.ts";
+// import { measureProfile } from "./profiling.ts";
 
-// smallFunctionHeader.parse = instrument("smFunc", smallFunctionHeader.parse.bind(smallFunctionHeader));
-// largeFunctionHeader.parse = instrument("lgFunc", largeFunctionHeader.parse.bind(largeFunctionHeader));
-
-await using profile = await measureProfile("./test/profile.cpuprofile");
+// await using profile = await measureProfile("./test/profile.cpuprofile");
 
 const bundleHandle = await open("./test/index.android.bundle");
 const { size } = await bundleHandle.stat();
 
-const { reader } = createStreamReader(bundleHandle.readableWebStream() as any, size, () => {});
+const { reader } = createStreamReader(bundleHandle.readableWebStream() as any, size);
 
 console.time("parse");
-const parsed = await parseFile(reader);
+const hermes = await parseModule(reader);
 console.timeEnd("parse");
 
-deepStrictEqual(parsed.functionHeaders[9], {
+console.log(hermes.header)
+
+deepStrictEqual(hermes.functions[9].header, {
   offset: 11019740,
   paramCount: 2,
   bytecodeSizeInBytes: 101,

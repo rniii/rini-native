@@ -1,46 +1,23 @@
-import type { LargeFunctionHeader } from "decompiler/bitfields";
+import { createStreamReader, parseModule } from "decompiler";
+import type { FunctionHeader } from "decompiler/bitfields";
 import { open } from "fs/promises";
-import { CYAN, drawGutter, GREEN, PURPLE, RED, RESET } from "./src/formatting.ts";
 import { bigIntOperands, functionOperands, Opcode, opcodeTypes, stringOperands } from "./decompiler/src/opcodes.ts";
-import { parseFile } from "decompiler";
+import { CYAN, drawGutter, GREEN, PURPLE, RED, RESET } from "./src/formatting.ts";
 
-const file = await open("./test/index.android.bundle");
+const file = await open("./test/sample.hbc");
+const { size } = await file.stat();
 
-const hermes = await parseFile((_, byteOffset, byteLength, callback) => {
-});
+const { reader } = createStreamReader(file.readableWebStream() as any, size);
+const hermes = await parseModule(reader);
 
-// console.table(file.header)
-
-// for (const func of functions) {
-//   const buf = Buffer.alloc(func.bytecodeSizeInBytes);
-//   await file.handle.read(buf, 0, func.bytecodeSizeInBytes, func.offset);
-//   console.log(disassemble(func, buf));
-// }
-
-// console.table(functions.reduce((a, b) => a.bytecodeSizeInBytes > b.bytecodeSizeInBytes ? a : b))
-
-// const buf = Buffer.alloc(678661);
-// await file.handle.read(buf, 0, 678661, 27117765);
-// console.log(disassemble(functions[0], buf));
-
-// const func = hermes.functions[9];
-// const buf = Buffer.alloc(func.bytecodeSizeInBytes);
-// await file.handle.read(buf, 0, func.bytecodeSizeInBytes, func.offset);
-// console.log(disassemble(func, buf));
-
-// console.log(strings.slice(0,128))
-
-// for (const func of functions) {
-//   if (!strings[func.functionName]) continue;
-
-//   const buf = Buffer.alloc(func.bytecodeSizeInBytes);
-//   await file.handle.read(buf, 0, func.bytecodeSizeInBytes, func.offset);
-
-//   console.log(disassemble(func, buf));
-// }
+for (const func of hermes.functions) {
+  console.log(disassemble(func.header, func.bytecode));
+}
 
 // this is bad
-function disassemble(func: LargeFunctionHeader, buf: Buffer) {
+function disassemble(func: FunctionHeader, bytecode: Uint8Array) {
+  const view = new DataView(bytecode.buffer, bytecode.byteOffset, bytecode.byteLength);
+
   const name = hermes.strings[func.functionName] || "<closure>";
   const addr = "0x" + func.offset.toString(16).padStart(8, "0");
   const mangled = `${CYAN}${name}@${GREEN}${addr}${RESET}`;
@@ -53,12 +30,12 @@ function disassemble(func: LargeFunctionHeader, buf: Buffer) {
   const jumpTargets: number[] = [];
 
   let i = 0;
-  while (i < buf.length) {
+  while (i < bytecode.length) {
     addresses.push(i);
     addr2line[i] = lines.length;
 
     const ip = i;
-    const op = buf[i++] as Opcode;
+    const op = bytecode[i++] as Opcode;
     const name = Opcode[op];
     const types = opcodeTypes[op];
 
@@ -80,17 +57,17 @@ function disassemble(func: LargeFunctionHeader, buf: Buffer) {
         let value = 0, width = 0;
 
         if (arg === "Reg32" || arg === "UInt32" || arg === "Imm32") {
-          value = buf.readUint32LE(i), width = 4;
+          value = view.getUint32(i, true), width = 4;
         } else if (arg === "Addr32") {
-          value = buf.readInt32LE(i), width = 4;
+          value = view.getInt32(i, true), width = 4;
         } else if (arg === "UInt16") {
-          value = buf.readUint16LE(i), width = 2;
+          value = view.getUint16(i, true), width = 2;
         } else if (arg === "Reg8" || arg === "UInt8") {
-          value = buf.readUint8(i), width = 1;
+          value = view.getUint8(i), width = 1;
         } else if (arg === "Addr8") {
-          value = buf.readInt8(i), width = 1;
+          value = view.getInt8(i), width = 1;
         } else if (arg === "Double") {
-          value = buf.readDoubleLE(i), width = 8;
+          value = view.getFloat64(i, true), width = 8;
         }
 
         if (arg.startsWith("Reg")) {
@@ -103,7 +80,7 @@ function disassemble(func: LargeFunctionHeader, buf: Buffer) {
         } else if (stringOperands[op]?.includes(j + 1)) {
           src += ` ${JSON.stringify(hermes.strings[value])}`;
         } else if (functionOperands[op]?.includes(j + 1)) {
-          src += ` ${hermes.strings[hermes.functions[value].functionName]}#${value}`;
+          src += ` ${hermes.strings[hermes.functions[value].header.functionName]}#${value}`;
         } else if (bigIntOperands[op]?.includes(j + 1)) {
           src += ` ${hermes.bigInts[value]}n`;
         } else {

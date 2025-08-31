@@ -1,18 +1,8 @@
-import { HERMES_SIGNATURE, type BytecodeHeader, type BytecodeModule, parseModule } from "decompiler";
+import { type BytecodeHeader, type BytecodeModule, HERMES_SIGNATURE, parseModule } from "decompiler";
+import { readFile } from "node:fs/promises";
 import { padSize } from "../utils/index.ts";
 
-const data = new Uint8Array(Buffer.from(
-  `
-    xh+8A8EDGR9gAAAAOmSrCmxctJU4IRJ2apSp0zTITUJdAQAAAAAAAAEAAAACAAAAAgAAAAQAAAAA
-    AAAAEgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADoAAAAAAAAAAAA
-    AAAAAAAAAAAAAAAAAADEAAACGIAAANwAABYAAgASAgAAAAIAAIAI6DUc/SuaYgAAAAUKAAAGBgAA
-    AxYAAAdoZWxsb2dsb2JhbGNvbnNvbGUAADAAOQIAAQMANgECAgJzAAAAUwABAgBcAAAAAAAAAAAA
-    AAAAAAEAAAAOAAAAAQAAAB8AAAAiAAAAIwAAACMAAAAAAAAADgAAAHRlc3Qvc2FtcGxlLmpzAAAA
-    AAAAAAAAAAAAAAEBAgAAAP////8PBgALAP////8PCQAAAP////8Pf38AAABuJuS8E5P6l0EXhgjf
-    Zsz6XlzlDw==
-  `,
-  "base64",
-));
+const data = new Uint8Array(await readFile("./test/sample.hbc"));
 
 const file = await parseModule((_, byteOffset, byteLength, callback) => {
   callback(data.subarray(byteOffset, byteOffset + byteLength));
@@ -32,7 +22,7 @@ for (let i = 0; i < data.length; i++) {
 }
 
 console.log(file.header);
-console.log(file.functions[0]);
+console.log(file.functions);
 
 function dumpHeader(header: BytecodeHeader, data: Uint8Array) {
   const view = new DataView(data.buffer);
@@ -60,7 +50,7 @@ function dumpFile(module: BytecodeModule): Uint8Array {
 
   for (const func of module.functions) {
     if (func.header.hasExceptionHandler) {
-      // TODO
+      parts.push(new Uint8Array(4));
     }
 
     if (func.header.hasDebugInfo) {
@@ -76,9 +66,12 @@ function dumpFile(module: BytecodeModule): Uint8Array {
     ),
   );
 
-  const size = parts.reduce((acc, x) => acc + padSize(x.byteLength), 0);
+  const size = parts.reduce((acc, x, i) => {
+    if (i == parts.length) return acc + x.byteLength;
+    return acc + padSize(x.byteLength);
+  }, 0);
 
-  module.header.fileLength = 349;
+  // module.header.fileLength = size;
 
   dumpHeader(module.header, parts[0]);
 

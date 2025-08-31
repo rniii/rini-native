@@ -1,6 +1,7 @@
 import { createStreamReader, parseModule } from "decompiler";
 import { deepStrictEqual } from "node:assert";
 import { open } from "node:fs/promises";
+import { formatSizeUnit, mapValues } from "../utils/index.ts";
 // import { measureProfile } from "./profiling.ts";
 
 // await using profile = await measureProfile("./test/profile.cpuprofile");
@@ -14,7 +15,9 @@ console.time("parse");
 const hermes = await parseModule(reader);
 console.timeEnd("parse");
 
-console.log(hermes.header)
+console.log(hermes.header);
+
+console.log(mapValues(process.memoryUsage(), formatSizeUnit));
 
 deepStrictEqual(hermes.functions[9].header, {
   offset: 11019740,
@@ -30,5 +33,5 @@ deepStrictEqual(hermes.functions[9].header, {
   strictMode: 1,
   hasExceptionHandler: 0,
   hasDebugInfo: 1,
-  overflowed: 0,
+  overflowed: 1,
 });

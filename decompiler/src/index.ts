@@ -15,6 +15,7 @@ export type DebugOffset = [sourceLocation: number, scopeDescriptor: number, call
 export interface BytecodeFunction {
   header: FunctionHeader;
   bytecode: Uint8Array;
+  exceptionHandler?: number;
   debugOffset?: DebugOffset;
 }
 
@@ -187,7 +188,13 @@ export async function parseModule(reader: SegmentReader): Promise<BytecodeModule
 
   const functions = functionHeaders.map(header => {
     let i = header.infoOffset;
-    if (header.overflowed) i = padSize(i) + largeFunctionHeader.byteSize;
+    if (header.overflowed) i += largeFunctionHeader.byteSize;
+
+    let exceptionHandler: number | undefined;
+    if (header.hasExceptionHandler) {
+      exceptionHandler = new Uint32Array(buffer, i, 1)[0];
+      i += 4;
+    }
 
     let debugOffset: DebugOffset | undefined;
     if (header.hasDebugInfo) {
@@ -197,6 +204,7 @@ export async function parseModule(reader: SegmentReader): Promise<BytecodeModule
     return {
       header,
       bytecode: new Uint8Array(buffer, header.offset, header.bytecodeSizeInBytes),
+      exceptionHandler,
       debugOffset,
     };
   });

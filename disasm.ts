@@ -1,20 +1,22 @@
 import { parseModule } from "decompiler";
 import type { FunctionHeader } from "decompiler/bitfields";
-import { open } from "fs/promises";
-import { bigIntOperands, Builtin, functionOperands, Opcode, opcodeTypes, stringOperands } from "./decompiler/src/opcodes.ts";
+import { bigIntOperands, Builtin, functionOperands, Opcode, opcodeTypes, stringOperands } from "decompiler/opcodes";
+import { appendFile, open, writeFile } from "fs/promises";
 import { CYAN, drawGutter, GREEN, PURPLE, RED, RESET } from "./src/formatting.ts";
 
-const file = await open("./test/sample.hbc");
+await using bundle = await open("discord/bundle.hbc");
 
-const { size } = await file.stat();
+const { size } = await bundle.stat();
 const buffer = new ArrayBuffer(size);
-await file.read(new Uint8Array(buffer));
-await file.close();
+await bundle.read(new Uint8Array(buffer));
+await bundle.close();
 
 const hermes = await parseModule(buffer);
 
+await writeFile("bytecode.ansi", "");
+
 for (const func of hermes.functions) {
-  console.log(disassemble(func.header, func.bytecode));
+  await appendFile("bytecode.ansi", disassemble(func.header, func.bytecode));
 }
 
 // this is bad
@@ -86,7 +88,7 @@ function disassemble(func: FunctionHeader, bytecode: Uint8Array) {
       } else if (bigIntOperands[op]?.includes(j + 1)) {
         src += ` ${hermes.bigInts[value]}n`;
       } else if ((op === Opcode.CallBuiltin || op === Opcode.CallBuiltinLong) && j == 1) {
-        src += ` ${Builtin[value]}`
+        src += ` ${Builtin[value]}`;
       } else {
         src += ` ${value}`;
       }
@@ -103,8 +105,8 @@ function disassemble(func: FunctionHeader, bytecode: Uint8Array) {
   }
   const gutter = drawGutter(lines.length, pointers, { colors: true, curved: true });
 
-  lines = lines.map((line, i) => `${addresses[i].toString(16).padStart(8, "0")} ${gutter[i]} ${line}`);
+  lines = lines.map((line, i) => `${addresses[i].toString(16).padStart(8, "0")} ${gutter[i]} ${line}\n`);
 
   return `${mangled}(${params}):\n`
-    + lines.join("\n");
+    + lines.join("");
 }

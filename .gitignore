@@ -1,6 +1,7 @@
 node_modules
 
 index.android.bundle
+bytecode.ansi
 *.apk
 *.hbc
 *.cpuprofile

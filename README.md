@@ -1,14 +1,16 @@
-# Discord (rini native)
+# Hermicide™
 
-1.  Locate and pull the Discord APK
+Work in progress bytecode-based Discord patcher
 
-    ```
-    % adb shell pm path com.discord
-    package:/data/app/.../com.discord-.../base.apk
-    package:/data/app/.../com.discord-.../split_config.arm64_v8a.apk
-    package:/data/app/.../com.discord-.../split_config.en.apk
-    package:/data/app/.../com.discord-.../split_config.xxhdpi.apk
-    % adb pull "/data/app/.../com.discord-.../"{base,split_config.{arm64_v8a,en,xxhdpi}}".apk" .
-    ```
+```
+$ pnpm i
+$ pnpm extract            # Grab Discord's APK using `adb`. USB cable recommended.
+$ pnpm disasm             # Dump bytecode
+$ less -R bytecode.ansi   # Read using a pager
+```
 
-2.  ???
+[join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join]
+[join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join]
+[join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join]
+
+[join]: https://discord.gg/RzEN4Nedg5

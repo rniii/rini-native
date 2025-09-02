@@ -3,6 +3,7 @@
   "name": "decompiler",
   "exports": {
     ".": "./src/index.ts",
-    "./bitfields": "./src/bitfields.ts"
+    "./bitfields": "./src/bitfields.ts",
+    "./opcodes": "./src/opcodes.ts"
   }
 }

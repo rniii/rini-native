@@ -4,7 +4,9 @@
     "dev": "pnpm -C explorer exec vite",
     "test": "node ./test/index.ts",
     "lint": "dprint check",
-    "lint:fix": "dprint fmt"
+    "lint:fix": "dprint fmt",
+    "extract": "node ./scripts/extract.ts",
+    "disasm": "node ./disasm.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.15",

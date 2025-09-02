@@ -9,7 +9,8 @@
   "devDependencies": {
     "@types/node": "^24.0.15",
     "dprint": "^0.50.1",
-    "esbuild": "^0.25.8"
+    "esbuild": "^0.25.8",
+    "fflate": "^0.8.2"
   },
   "dependencies": {
     "decompiler": "workspace:^"

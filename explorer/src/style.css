@@ -2,3 +2,19 @@
   color: #d8d0d5;
   background: #121212;
 }
+
+.strings {
+  height: 100px;
+  word-wrap: break-word;
+  overflow-y: scroll;
+  will-change: scroll-position;
+  contain: strict;
+
+  .n::before {
+    content: "#";
+  }
+  .n {
+    display: inline-block;
+    width: 8ch;
+  }
+}

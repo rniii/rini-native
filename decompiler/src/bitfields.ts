@@ -1,6 +1,6 @@
 import { Bitfield, type ParsedBitfield } from "./Bitfield.ts";
 
-export const functionHeaderFlagFields = {
+const functionHeaderFlagFields = {
   prohibitInvoke: 2,
   strictMode: 1,
   hasExceptionHandler: 1,

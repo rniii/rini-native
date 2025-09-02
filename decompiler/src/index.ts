@@ -102,14 +102,7 @@ export function segmentFile(header: BytecodeHeader) {
   });
 }
 
-export type SegmentReader = (
-  name: string,
-  byteOffset: number,
-  byteLength: number,
-  callback: (buffer: Uint8Array) => void,
-) => void;
-
-export async function parseModule(reader: SegmentReader): Promise<BytecodeModule> {
+export async function parseModule(buffer: ArrayBuffer): Promise<BytecodeModule> {
   let cursor = 0;
 
   const readChunk = <T>(name: string, position: [number, number], handler: (buffer: Uint8Array) => T) => {
@@ -122,28 +115,28 @@ export async function parseModule(reader: SegmentReader): Promise<BytecodeModule
     cursor = position[0] + position[1];
     // console.log(name, `${position[0]}…${cursor}`);
 
-    return new Promise<T>(resolve => reader(name, position[0], position[1], buf => resolve(handler(buf))));
+    return handler(new Uint8Array(buffer, ...position));
   };
 
   const readSegment = <T>(key: BytecodeSegment, desc: string, handler: (buffer: Uint8Array) => T) =>
     readChunk(desc, segmentPositions[key], handler);
 
-  const header = await readChunk("Hermes header", [0, 128], parseHeader);
+  const header = readChunk("Hermes header", [0, 128], parseHeader);
   const segmentPositions = segmentFile(header);
 
-  const functionHeaders = await readSegment("functionHeaders", "Function headers", buffer => (
+  const functionHeaders = readSegment("functionHeaders", "Function headers", buffer => (
     smallFunctionHeader.parseArray(buffer, header.functionCount)
   ));
 
-  const stringTable = await readSegment("stringTable", "Strings", buffer => (
+  const stringTable = readSegment("stringTable", "Strings", buffer => (
     stringTableEntry.parseArray(buffer, header.stringCount)
   ));
 
-  const overflowStringTable = await readSegment("overflowStringTable", "Long strings", buffer => (
+  const overflowStringTable = readSegment("overflowStringTable", "Long strings", buffer => (
     offsetLengthPair.parseArray(buffer, header.overflowStringCount)
   ));
 
-  const strings = await readSegment("stringStorage", "String data", buffer => {
+  const strings = readSegment("stringStorage", "String data", buffer => {
     return stringTable.map(({ isUtf16, length, offset }) => {
       if (length === 0xff) ({ length, offset } = overflowStringTable[offset]);
 
@@ -153,11 +146,11 @@ export async function parseModule(reader: SegmentReader): Promise<BytecodeModule
     });
   });
 
-  const bigIntTable = await readSegment("bigIntTable", "BigInts", buffer => (
+  const bigIntTable = readSegment("bigIntTable", "BigInts", buffer => (
     offsetLengthPair.parseArray(buffer, header.bigIntCount)
   ));
 
-  const bigInts = await readSegment("bigIntStorage", "BigInt data", buffer => {
+  const bigInts = readSegment("bigIntStorage", "BigInt data", buffer => {
     return bigIntTable.map(({ offset, length }) => {
       return toBigInt(buffer.subarray(offset, offset + length));
     });
@@ -169,7 +162,7 @@ export async function parseModule(reader: SegmentReader): Promise<BytecodeModule
     const start = getLargeOffset(functionHeaders[0]);
     const end = getLargeOffset(functionHeaders[overflowEnd]) + largeFunctionHeader.byteSize;
 
-    await readChunk("Overflowed headers", [start, end - start], buffer => {
+    readChunk("Overflowed headers", [start, end - start], buffer => {
       for (const smallHeader of functionHeaders) {
         if (!smallHeader.overflowed) continue;
 
@@ -184,7 +177,6 @@ export async function parseModule(reader: SegmentReader): Promise<BytecodeModule
     });
   }
 
-  const { buffer } = await readChunk("End of file", [header.fileLength, 0], b => b);
   const view = new DataView(buffer);
 
   const functions = functionHeaders.map(header => {
@@ -224,67 +216,6 @@ export async function parseModule(reader: SegmentReader): Promise<BytecodeModule
     bigInts,
     buffer,
   };
-}
-
-export interface PendingSegment {
-  name: string;
-  byteOffset: number;
-  byteLength: number;
-  callback(buf: Uint8Array): void;
-}
-
-// cursed
-export function createStreamReader(
-  stream: ReadableStream,
-  fileSize: number,
-  hook: (buffer: ArrayBuffer, offset: number) => void = () => {},
-): {
-  reader: SegmentReader;
-  pendingSegments: PendingSegment[];
-} {
-  const pendingSegments = [] as PendingSegment[];
-
-  const reader = stream.getReader({ mode: "byob" });
-
-  readData();
-
-  return {
-    reader(name, byteOffset, byteLength, callback) {
-      const task = { name, byteOffset, byteLength, callback };
-      insort(pendingSegments, task, task => task.byteOffset);
-    },
-    pendingSegments,
-  };
-
-  async function readData() {
-    let buffer = new ArrayBuffer(fileSize);
-    let offset = 0;
-    let chunk: Uint8Array | undefined;
-
-    const nextChunk = async () => {
-      const { value } = await reader.read(new Uint8Array(buffer, offset, fileSize - offset));
-      return value;
-    };
-
-    while (offset < fileSize && (chunk = await nextChunk())) {
-      buffer = chunk.buffer;
-      offset += chunk.byteLength;
-
-      hook(buffer, offset);
-
-      while (pendingSegments[0]) {
-        const segment = pendingSegments[0];
-        if (segment.byteOffset + segment.byteLength > offset) break;
-
-        const data = new Uint8Array(buffer, segment.byteOffset, segment.byteLength);
-
-        segment.callback(data);
-        pendingSegments.shift();
-
-        await Promise.resolve();
-      }
-    }
-  }
 }
 
 const Utf8D = new TextDecoder("utf-8");

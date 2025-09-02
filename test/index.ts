@@ -1,4 +1,4 @@
-import { createStreamReader, parseModule } from "decompiler";
+import { parseModule } from "decompiler";
 import { deepStrictEqual } from "node:assert";
 import { open } from "node:fs/promises";
 import { formatSizeUnit, mapValues } from "../utils/index.ts";
@@ -6,13 +6,13 @@ import { formatSizeUnit, mapValues } from "../utils/index.ts";
 
 // await using profile = await measureProfile("./test/profile.cpuprofile");
 
-const bundleHandle = await open("./test/index.android.bundle");
-const { size } = await bundleHandle.stat();
-
-const { reader } = createStreamReader(bundleHandle.readableWebStream() as any, size);
+await using bundle = await open("./test/index.android.bundle");
+const { size } = await bundle.stat();
+const buffer = new ArrayBuffer(size);
+await bundle.read(new Uint8Array(buffer));
 
 console.time("parse");
-const hermes = await parseModule(reader);
+const hermes = await parseModule(buffer);
 console.timeEnd("parse");
 
 console.log(hermes.header);

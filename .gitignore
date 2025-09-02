@@ -1,6 +1,8 @@
 node_modules
 
-*.android.bundle
+index.android.bundle
+*.apk
+*.hbc
 *.cpuprofile
 
 dist/

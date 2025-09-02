@@ -1,14 +1,17 @@
-import { createStreamReader, parseModule } from "decompiler";
+import { parseModule } from "decompiler";
 import type { FunctionHeader } from "decompiler/bitfields";
 import { open } from "fs/promises";
-import { bigIntOperands, functionOperands, Opcode, opcodeTypes, stringOperands } from "./decompiler/src/opcodes.ts";
+import { bigIntOperands, Builtin, functionOperands, Opcode, opcodeTypes, stringOperands } from "./decompiler/src/opcodes.ts";
 import { CYAN, drawGutter, GREEN, PURPLE, RED, RESET } from "./src/formatting.ts";
 
-const file = await open("./test/index.android.bundle");
-const { size } = await file.stat();
+const file = await open("./test/sample.hbc");
 
-const { reader } = createStreamReader(file.readableWebStream() as any, size);
-const hermes = await parseModule(reader);
+const { size } = await file.stat();
+const buffer = new ArrayBuffer(size);
+await file.read(new Uint8Array(buffer));
+await file.close();
+
+const hermes = await parseModule(buffer);
 
 for (const func of hermes.functions) {
   console.log(disassemble(func.header, func.bytecode));
@@ -82,6 +85,8 @@ function disassemble(func: FunctionHeader, bytecode: Uint8Array) {
         src += ` ${hermes.strings[hermes.functions[value].header.functionName]}#${value}`;
       } else if (bigIntOperands[op]?.includes(j + 1)) {
         src += ` ${hermes.bigInts[value]}n`;
+      } else if ((op === Opcode.CallBuiltin || op === Opcode.CallBuiltinLong) && j == 1) {
+        src += ` ${Builtin[value]}`
       } else {
         src += ` ${value}`;
       }

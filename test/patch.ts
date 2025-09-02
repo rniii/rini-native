@@ -66,10 +66,7 @@ function dumpFile(module: BytecodeModule): Uint8Array {
     ),
   );
 
-  const size = parts.reduce((acc, x, i) => {
-    if (i == parts.length) return acc + x.byteLength;
-    return acc + padSize(x.byteLength);
-  }, 0);
+  const size = parts.reduce((acc, x) => acc + x.byteLength, 0);
 
   // module.header.fileLength = size;
 
@@ -80,7 +77,7 @@ function dumpFile(module: BytecodeModule): Uint8Array {
   let i = 0;
   for (const part of parts) {
     data.set(part, i);
-    i += padSize(part.byteLength);
+    i += part.byteLength;
   }
 
   return data;

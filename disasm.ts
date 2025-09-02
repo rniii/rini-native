@@ -1,21 +1,27 @@
-import type { largeFunctionHeader } from "@/bitfields";
-import { CYAN, drawGutter, GREEN, PURPLE, RED, RESET } from "@/formatting";
-import { Opcode, opcodeTypes, stringOperands } from "@/opcodes";
-import { parseFile, readFile } from "@/parser";
+import { parseModule } from "decompiler";
+import type { FunctionHeader } from "decompiler/bitfields";
 import { open } from "fs/promises";
+import { bigIntOperands, Builtin, functionOperands, Opcode, opcodeTypes, stringOperands } from "./decompiler/src/opcodes.ts";
+import { CYAN, drawGutter, GREEN, PURPLE, RED, RESET } from "./src/formatting.ts";
 
-const file = await readFile(await open("./test/index.android.bundle"));
-const parser = parseFile(file);
-const functions = await parser.functionHeaders;
-const strings = await parser.stringStorage;
-const func = functions[0];
+const file = await open("./test/sample.hbc");
 
-// console.log(
-//   functions.map((f, i) => f.functionName != 255 && [i, strings[f.functionName]]).filter(x => x).slice(0, 128),
-// );
+const { size } = await file.stat();
+const buffer = new ArrayBuffer(size);
+await file.read(new Uint8Array(buffer));
+await file.close();
 
-function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Buffer) {
-  const name = strings[func.functionName] || "<closure>";
+const hermes = await parseModule(buffer);
+
+for (const func of hermes.functions) {
+  console.log(disassemble(func.header, func.bytecode));
+}
+
+// this is bad
+function disassemble(func: FunctionHeader, bytecode: Uint8Array) {
+  const view = new DataView(bytecode.buffer, bytecode.byteOffset, bytecode.byteLength);
+
+  const name = hermes.strings[func.functionName] || "<closure>";
   const addr = "0x" + func.offset.toString(16).padStart(8, "0");
   const mangled = `${CYAN}${name}@${GREEN}${addr}${RESET}`;
   const params = Array.from(Array(func.paramCount), (_, i) => `r${i}`).join(", ");
@@ -27,12 +33,12 @@ function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Bu
   const jumpTargets: number[] = [];
 
   let i = 0;
-  while (i < buf.length) {
+  while (i < bytecode.length) {
     addresses.push(i);
     addr2line[i] = lines.length;
 
     const ip = i;
-    const op = buf[i++] as Opcode;
+    const op = bytecode[i++] as Opcode;
     const name = Opcode[op];
     const types = opcodeTypes[op];
 
@@ -44,48 +50,48 @@ function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Bu
       continue;
     }
 
-    src += `${PURPLE}${name.padEnd(24)}${RESET}`;
+    src += `${PURPLE}${name}${RESET}`;
 
-    try {
-      for (let j = 0; j < types.length; j++) {
-        const arg = types[j];
-        if (j > 0) src += `,`;
+    for (let j = 0; j < types.length; j++) {
+      const arg = types[j];
+      if (j > 0) src += `,`;
 
-        let value = 0, width = 0;
+      let value = 0, width = 0;
 
-        if (arg === "Reg32" || arg === "UInt32" || arg === "Imm32") {
-          value = buf.readUint32LE(i), width = 4;
-        } else if (arg === "Addr32") {
-          value = buf.readInt32LE(i), width = 4;
-        } else if (arg === "UInt16") {
-          value = buf.readUint16LE(i), width = 2;
-        } else if (arg === "Reg8" || arg === "UInt8") {
-          value = buf.readUint8(i), width = 1;
-        } else if (arg === "Addr8") {
-          value = buf.readInt8(i), width = 1;
-        } else if (arg === "Double") {
-          value = buf.readDoubleLE(i), width = 8;
-        }
-
-        if (arg.startsWith("Reg")) {
-          src += ` r${value}`;
-        } else if (arg.startsWith("Addr")) {
-          const addr = ip + value;
-          src += ` 0x${addr.toString(16).padStart(8, "0")}`;
-          jumpSources[ip] = addr;
-          jumpTargets[addr] = ip;
-        } else if (stringOperands[op]?.includes(j + 1)) {
-          const str = strings[value];
-          src += ` '${str.length > 64 ? str.slice(0, 63) + "…" : str}'`;
-        } else {
-          src += ` ${value}`;
-        }
-
-        i += width;
+      if (arg === "Reg32" || arg === "UInt32" || arg === "Imm32") {
+        value = view.getUint32(i, true), width = 4;
+      } else if (arg === "Addr32") {
+        value = view.getInt32(i, true), width = 4;
+      } else if (arg === "UInt16") {
+        value = view.getUint16(i, true), width = 2;
+      } else if (arg === "Reg8" || arg === "UInt8") {
+        value = view.getUint8(i), width = 1;
+      } else if (arg === "Addr8") {
+        value = view.getInt8(i), width = 1;
+      } else if (arg === "Double") {
+        value = view.getFloat64(i, true), width = 8;
       }
-    } catch {
-      src += ` ${RED}<truncated>`;
-      continue;
+
+      if (arg.startsWith("Reg")) {
+        src += ` r${value}`;
+      } else if (arg.startsWith("Addr")) {
+        const addr = ip + value;
+        src += ` 0x${addr.toString(16).padStart(8, "0")}`;
+        jumpSources[ip] = addr;
+        jumpTargets[addr] = ip;
+      } else if (stringOperands[op]?.includes(j + 1)) {
+        src += ` ${JSON.stringify(hermes.strings[value])}`;
+      } else if (functionOperands[op]?.includes(j + 1)) {
+        src += ` ${hermes.strings[hermes.functions[value].header.functionName]}#${value}`;
+      } else if (bigIntOperands[op]?.includes(j + 1)) {
+        src += ` ${hermes.bigInts[value]}n`;
+      } else if ((op === Opcode.CallBuiltin || op === Opcode.CallBuiltinLong) && j == 1) {
+        src += ` ${Builtin[value]}`
+      } else {
+        src += ` ${value}`;
+      }
+
+      i += width;
     }
 
     lines.push(src);
@@ -102,8 +108,3 @@ function disassemble(func: ReturnType<typeof largeFunctionHeader.parse>, buf: Bu
   return `${mangled}(${params}):\n`
     + lines.join("\n");
 }
-
-const buf = Buffer.alloc(func.bytecodeSizeInBytes);
-await file.handle.read(buf, 0, func.bytecodeSizeInBytes, func.offset);
-
-console.log(disassemble(func, buf));

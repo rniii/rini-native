@@ -427,7 +427,7 @@ export const opcodeTypes = { // {{{
 /**
  * Opcodes which have operands referring to the bigint table.
  */
-export const bigintOperands = { // {{{
+export const bigIntOperands = { // {{{
   [Opcode.LoadConstBigInt]: [2],
   [Opcode.LoadConstBigIntLongIndex]: [2],
 } as Record<Opcode, number[]>; // }}}
@@ -473,6 +473,61 @@ export const stringOperands = { // {{{
   [Opcode.LoadConstStringLongIndex]: [2],
   [Opcode.CreateRegExp]: [2, 3],
 } as Record<Opcode, number[]>; // }}}
+
+export enum Builtin { // {{{
+  "Array.isArray",
+  "Date.UTC",
+  "Date.parse",
+  "JSON.parse",
+  "JSON.stringify",
+  "Math.abs",
+  "Math.acos",
+  "Math.asin",
+  "Math.atan",
+  "Math.atan2",
+  "Math.ceil",
+  "Math.cos",
+  "Math.exp",
+  "Math.floor",
+  "Math.hypot",
+  "Math.imul",
+  "Math.log",
+  "Math.max",
+  "Math.min",
+  "Math.pow",
+  "Math.round",
+  "Math.sin",
+  "Math.sqrt",
+  "Math.tan",
+  "Math.trunc",
+  "Object.create",
+  "Object.defineProperties",
+  "Object.defineProperty",
+  "Object.freeze",
+  "Object.getOwnPropertyDescriptor",
+  "Object.getOwnPropertyNames",
+  "Object.getPrototypeOf",
+  "Object.isExtensible",
+  "Object.isFrozen",
+  "Object.keys",
+  "Object.seal",
+  "String.fromCharCode",
+  "silentSetPrototypeOf",
+  "requireFast",
+  "getTemplateObject",
+  "ensureObject",
+  "getMethod",
+  "throwTypeError",
+  "generatorSetDelegated",
+  "copyDataProperties",
+  "copyRestArgs",
+  "arraySpread",
+  "apply",
+  "exportAll",
+  "exponentiationOperator",
+  "initRegexNamedGroups",
+  "getOriginalNativeErrorConstructor",
+} // }}}
 
 export type ArgumentType = typeof opcodeTypes[Opcode][number];
 

@@ -185,6 +185,7 @@ export async function parseModule(reader: SegmentReader): Promise<BytecodeModule
   }
 
   const { buffer } = await readChunk("End of file", [header.fileLength, 0], b => b);
+  const view = new DataView(buffer);
 
   const functions = functionHeaders.map(header => {
     let i = header.infoOffset;
@@ -192,13 +193,17 @@ export async function parseModule(reader: SegmentReader): Promise<BytecodeModule
 
     let exceptionHandler: number | undefined;
     if (header.hasExceptionHandler) {
-      exceptionHandler = new Uint32Array(buffer, i, 1)[0];
+      exceptionHandler = view.getUint32(i, true);
       i += 4;
     }
 
     let debugOffset: DebugOffset | undefined;
     if (header.hasDebugInfo) {
-      debugOffset = [...new Uint32Array(buffer, i, 3)] as any;
+      debugOffset = [
+        view.getUint32(i, true),
+        view.getUint32(i + 4, true),
+        view.getUint32(i + 8, true),
+      ];
     }
 
     return {

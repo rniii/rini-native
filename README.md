@@ -12,5 +12,17 @@ $ less -R bytecode.ansi   # Read using a pager
 [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join]
 [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join]
 [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join]
+[join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join]
+[join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join]
+[join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join]
+[join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join]
+[join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join]
+[join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join]
+[join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join]
+[join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join]
+[join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join]
+[join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join]
+[join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join]
+[join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join] [join]
 
 [join]: https://discord.gg/RzEN4Nedg5

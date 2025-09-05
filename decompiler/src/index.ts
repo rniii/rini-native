@@ -1,4 +1,4 @@
-import { fromEntries, insort, mapValues, padSize, toBigInt } from "../../utils/index.ts";
+import { fromEntries, mapValues, padSize, toBigInt } from "../../utils/index.ts";
 import {
   type FunctionHeader,
   functionSourceEntry,
@@ -12,24 +12,9 @@ import {
 
 export type DebugOffset = [sourceLocation: number, scopeDescriptor: number, callees: number];
 
-export interface BytecodeFunction {
-  header: FunctionHeader;
-  bytecode: Uint8Array;
-  exceptionHandler?: number;
-  debugOffset?: DebugOffset;
-}
-
-export interface BytecodeModule {
-  header: BytecodeHeader;
-  segments: Record<BytecodeSegment, Uint8Array>;
-  functions: BytecodeFunction[];
-  strings: string[];
-  bigInts: bigint[];
-  buffer: ArrayBuffer;
-}
-
 export type BytecodeHeader = ReturnType<typeof parseHeader>;
-
+export type BytecodeModule = ReturnType<typeof parseModule>;
+export type BytecodeFunction = BytecodeModule["functions"][number];
 export type BytecodeSegment = keyof ReturnType<typeof segmentFile>;
 
 export const HERMES_VERSION = 96;
@@ -102,80 +87,49 @@ export function segmentFile(header: BytecodeHeader) {
   });
 }
 
-export async function parseModule(buffer: ArrayBuffer): Promise<BytecodeModule> {
-  let cursor = 0;
+export function parseModule(buffer: ArrayBuffer) {
+  const header = parseHeader(new Uint8Array(buffer, 0, 128));
+  const segments = mapValues(segmentFile(header), p => new Uint8Array(buffer, ...p));
 
-  const readChunk = <T>(name: string, position: [number, number], handler: (buffer: Uint8Array) => T) => {
-    console.assert(position[0] >= cursor);
+  const functionHeaders = smallFunctionHeader.parseArray(
+    segments.functionHeaders,
+    header.functionCount,
+  );
 
-    // if (position[0] != cursor) {
-    //   console.log("Gap", `${cursor}…${position[0]}`);
-    // }
+  const stringTable = stringTableEntry.parseArray(
+    segments.stringTable,
+    header.stringCount,
+  );
 
-    cursor = position[0] + position[1];
-    // console.log(name, `${position[0]}…${cursor}`);
+  const overflowStringTable = offsetLengthPair.parseArray(
+    segments.overflowStringTable,
+    header.overflowStringCount,
+  );
 
-    return handler(new Uint8Array(buffer, ...position));
-  };
+  const strings = stringTable.map(({ isUtf16, length, offset }) => {
+    if (length === 0xff) ({ length, offset } = overflowStringTable[offset]);
 
-  const readSegment = <T>(key: BytecodeSegment, desc: string, handler: (buffer: Uint8Array) => T) =>
-    readChunk(desc, segmentPositions[key], handler);
+    const slice = segments.stringStorage.subarray(offset, offset + (isUtf16 ? length * 2 : length));
 
-  const header = readChunk("Hermes header", [0, 128], parseHeader);
-  const segmentPositions = segmentFile(header);
-
-  const functionHeaders = readSegment("functionHeaders", "Function headers", buffer => (
-    smallFunctionHeader.parseArray(buffer, header.functionCount)
-  ));
-
-  const stringTable = readSegment("stringTable", "Strings", buffer => (
-    stringTableEntry.parseArray(buffer, header.stringCount)
-  ));
-
-  const overflowStringTable = readSegment("overflowStringTable", "Long strings", buffer => (
-    offsetLengthPair.parseArray(buffer, header.overflowStringCount)
-  ));
-
-  const strings = readSegment("stringStorage", "String data", buffer => {
-    return stringTable.map(({ isUtf16, length, offset }) => {
-      if (length === 0xff) ({ length, offset } = overflowStringTable[offset]);
-
-      const slice = buffer.subarray(offset, offset + (isUtf16 ? length * 2 : length));
-
-      return (isUtf16 ? Utf16D : Utf8D).decode(slice);
-    });
+    return (isUtf16 ? Utf16D : Utf8D).decode(slice);
   });
 
-  const bigIntTable = readSegment("bigIntTable", "BigInts", buffer => (
-    offsetLengthPair.parseArray(buffer, header.bigIntCount)
+  const bigIntTable = offsetLengthPair.parseArray(segments.bigIntTable, header.bigIntCount);
+
+  const bigInts = bigIntTable.map(({ offset, length }) => (
+    toBigInt(segments.bigIntStorage.subarray(offset, offset + length))
   ));
 
-  const bigInts = readSegment("bigIntStorage", "BigInt data", buffer => {
-    return bigIntTable.map(({ offset, length }) => {
-      return toBigInt(buffer.subarray(offset, offset + length));
-    });
-  });
+    for (const smallHeader of functionHeaders) {
+      if (!smallHeader.overflowed) continue;
 
-  if (functionHeaders[0].overflowed) {
-    const overflowEnd = functionHeaders.findLastIndex(sm => sm.overflowed);
+      const largeHeader = largeFunctionHeader.parse(
+        new Uint8Array(buffer, getLargeOffset(smallHeader), largeFunctionHeader.byteSize),
+      );
 
-    const start = getLargeOffset(functionHeaders[0]);
-    const end = getLargeOffset(functionHeaders[overflowEnd]) + largeFunctionHeader.byteSize;
-
-    readChunk("Overflowed headers", [start, end - start], buffer => {
-      for (const smallHeader of functionHeaders) {
-        if (!smallHeader.overflowed) continue;
-
-        const largeOffset = getLargeOffset(smallHeader) - start;
-        const largeHeader = largeFunctionHeader.parse(
-          buffer.subarray(largeOffset, largeOffset + largeFunctionHeader.byteSize),
-        );
-
-        Object.assign(smallHeader, largeHeader);
-        smallHeader.overflowed = 1;
-      }
-    });
-  }
+      Object.assign(smallHeader, largeHeader);
+      smallHeader.overflowed = 1;
+    }
 
   const view = new DataView(buffer);
 
@@ -205,8 +159,6 @@ export async function parseModule(buffer: ArrayBuffer): Promise<BytecodeModule> 
       debugOffset,
     };
   });
-
-  const segments = mapValues(segmentPositions, p => new Uint8Array(buffer, ...p));
 
   return {
     header,

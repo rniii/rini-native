@@ -1,8 +1,7 @@
-import { parseModule } from "decompiler";
-import type { FunctionHeader } from "decompiler/bitfields";
+import { type BytecodeFunction, parseModule } from "decompiler";
 import { bigIntOperands, Builtin, functionOperands, Opcode, opcodeTypes, stringOperands } from "decompiler/opcodes";
 import { appendFile, open, writeFile } from "fs/promises";
-import { CYAN, drawGutter, GREEN, PURPLE, RED, RESET } from "./src/formatting.ts";
+import { CYAN, drawGutter, GREEN, PURPLE, RESET } from "./src/formatting.ts";
 
 await using bundle = await open("discord/bundle.hbc");
 
@@ -11,26 +10,26 @@ const buffer = new ArrayBuffer(size);
 await bundle.read(new Uint8Array(buffer));
 await bundle.close();
 
-const hermes = await parseModule(buffer);
+const hermes = parseModule(buffer);
 
 await writeFile("bytecode.ansi", "");
 
 for (const func of hermes.functions) {
-  await appendFile("bytecode.ansi", disassemble(func.header, func.bytecode));
+  await appendFile("bytecode.ansi", disassemble(func));
 }
 
 // this is bad
-function disassemble(func: FunctionHeader, bytecode: Uint8Array) {
+function disassemble({ header, bytecode }: BytecodeFunction) {
   const view = new DataView(bytecode.buffer, bytecode.byteOffset, bytecode.byteLength);
 
-  const name = hermes.strings[func.functionName] || "<closure>";
-  const addr = "0x" + func.offset.toString(16).padStart(8, "0");
+  const name = hermes.strings[header.functionName] || "<closure>";
+  const addr = "0x" + header.offset.toString(16).padStart(8, "0");
   const mangled = `${CYAN}${name}@${GREEN}${addr}${RESET}`;
-  const params = Array.from(Array(func.paramCount), (_, i) => `r${i}`).join(", ");
+  const params = Array.from(Array(header.paramCount), (_, i) => `r${i}`).join(", ");
 
+  let lines: string[] = [];
   const addresses: number[] = [];
   const addr2line: number[] = [];
-  let lines: string[] = [];
   const jumpSources: number[] = [];
   const jumpTargets: number[] = [];
 
@@ -45,12 +44,9 @@ function disassemble(func: FunctionHeader, bytecode: Uint8Array) {
     const types = opcodeTypes[op];
 
     let src = "";
+    let ann = "";
 
-    if (!name) {
-      src += `${RED}invalid ${op}`;
-      lines.push(src);
-      continue;
-    }
+    if (!name) throw Error(`Invalid opcode: ${op}`);
 
     src += `${PURPLE}${name}${RESET}`;
 
@@ -58,21 +54,27 @@ function disassemble(func: FunctionHeader, bytecode: Uint8Array) {
       const arg = types[j];
       if (j > 0) src += `,`;
 
-      let value = 0, width = 0;
-
-      if (arg === "Reg32" || arg === "UInt32" || arg === "Imm32") {
-        value = view.getUint32(i, true), width = 4;
-      } else if (arg === "Addr32") {
-        value = view.getInt32(i, true), width = 4;
-      } else if (arg === "UInt16") {
-        value = view.getUint16(i, true), width = 2;
-      } else if (arg === "Reg8" || arg === "UInt8") {
-        value = view.getUint8(i), width = 1;
-      } else if (arg === "Addr8") {
-        value = view.getInt8(i), width = 1;
-      } else if (arg === "Double") {
-        value = view.getFloat64(i, true), width = 8;
-      }
+      const [value, width] = (() => {
+        switch (arg) {
+          case "Reg32":
+          case "UInt32":
+          case "Imm32":
+            return [view.getUint32(i, true), 4];
+          case "Addr32":
+            return [view.getInt32(i, true), 4];
+          case "UInt16":
+            return [view.getUint16(i, true), 2];
+          case "Reg8":
+          case "UInt8":
+            return [view.getUint8(i), 1];
+          case "Addr8":
+            return [view.getInt8(i), 1];
+          case "Double":
+            return [view.getFloat64(i, true), 8];
+          default:
+            throw arg satisfies never;
+        }
+      })();
 
       if (arg.startsWith("Reg")) {
         src += ` r${value}`;
@@ -83,6 +85,7 @@ function disassemble(func: FunctionHeader, bytecode: Uint8Array) {
         jumpTargets[addr] = ip;
       } else if (stringOperands[op]?.includes(j + 1)) {
         src += ` ${JSON.stringify(hermes.strings[value])}`;
+        ann += ` ${value}`;
       } else if (functionOperands[op]?.includes(j + 1)) {
         src += ` ${hermes.strings[hermes.functions[value].header.functionName]}#${value}`;
       } else if (bigIntOperands[op]?.includes(j + 1)) {
@@ -95,6 +98,10 @@ function disassemble(func: FunctionHeader, bytecode: Uint8Array) {
 
       i += width;
     }
+
+    if (op === Opcode.CreateEnvironment) ann += ` envSize=${header.environmentSize}`;
+
+    if (ann) src = src.padEnd(52) + ` ${CYAN};${ann}`;
 
     lines.push(src);
   }

@@ -65,50 +65,50 @@ const src = dedent`\
 writeFile("decompiler/src/opcodes.ts", src);
 
 function parseBytecode(listing: string) {
-  const OPCODE_RE = /^DEFINE_(\S+)_(\d)\((.*)\)$/gm;
-  const OPERAND_RE = /^OPERAND_(\S+)_ID\((.*)\)$/gm;
+    const OPCODE_RE = /^DEFINE_(\S+)_(\d)\((.*)\)$/gm;
+    const OPERAND_RE = /^OPERAND_(\S+)_ID\((.*)\)$/gm;
 
-  for (const [, dir, count, operands] of listing.matchAll(OPCODE_RE)) {
-    const [op, ...args] = operands.split(/, */);
+    for (const [, dir, count, operands] of listing.matchAll(OPCODE_RE)) {
+        const [op, ...args] = operands.split(/, */);
 
-    if (dir == "OPCODE") {
-      opcodes[op] = args;
-    } else if (dir == "JUMP") {
-      const args = Array.from(Array(+count - 1), () => "Reg8");
-      opcodes[op] = ["Addr8", ...args];
-      opcodes[op + "Long"] = ["Addr32", ...args];
-    } else {
-      throw Error(`Unknown definition: ${dir}`);
+        if (dir == "OPCODE") {
+            opcodes[op] = args;
+        } else if (dir == "JUMP") {
+            const args = Array.from(Array(+count - 1), () => "Reg8");
+            opcodes[op] = ["Addr8", ...args];
+            opcodes[op + "Long"] = ["Addr32", ...args];
+        } else {
+            throw Error(`Unknown definition: ${dir}`);
+        }
     }
-  }
 
-  for (const [, dir, operands] of listing.matchAll(OPERAND_RE)) {
-    const [name, idx] = operands.split(/, */);
+    for (const [, dir, operands] of listing.matchAll(OPERAND_RE)) {
+        const [name, idx] = operands.split(/, */);
 
-    if (dir == "BIGINT") (bigIntOps[name] ??= []).push(+idx);
-    else if (dir == "FUNCTION") (functionOps[name] ??= []).push(+idx);
-    else if (dir == "STRING") (stringOps[name] ??= []).push(+idx);
-    else throw Error(`Unknown definition: ${dir}`);
-  }
+        if (dir == "BIGINT") (bigIntOps[name] ??= []).push(+idx);
+        else if (dir == "FUNCTION") (functionOps[name] ??= []).push(+idx);
+        else if (dir == "STRING") (stringOps[name] ??= []).push(+idx);
+        else throw Error(`Unknown definition: ${dir}`);
+    }
 }
 
 function parseBuiltins(listing: string) {
-  const METHOD_RE = /^BUILTIN_METHOD\((.*)\)$/gm;
-  const PRIVATE_RE = /^PRIVATE_BUILTIN\((.*)\)$/gm;
+    const METHOD_RE = /^BUILTIN_METHOD\((.*)\)$/gm;
+    const PRIVATE_RE = /^PRIVATE_BUILTIN\((.*)\)$/gm;
 
-  for (const [, args] of listing.matchAll(METHOD_RE)) {
-    const [obj, meth] = args.split(/, */);
+    for (const [, args] of listing.matchAll(METHOD_RE)) {
+        const [obj, meth] = args.split(/, */);
 
-    builtins.push(`${obj}.${meth}`);
-  }
+        builtins.push(`${obj}.${meth}`);
+    }
 
-  for (const [, builtin] of listing.matchAll(PRIVATE_RE)) {
-    builtins.push(builtin);
-  }
+    for (const [, builtin] of listing.matchAll(PRIVATE_RE)) {
+        builtins.push(builtin);
+    }
 }
 
 function stringify(val: any) {
-  return Array.isArray(val)
-    ? `[${val.map(v => JSON.stringify(v)).join(", ")}]`
-    : JSON.stringify(val);
+    return Array.isArray(val)
+        ? `[${val.map(v => JSON.stringify(v)).join(", ")}]`
+        : JSON.stringify(val);
 }

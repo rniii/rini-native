@@ -1,9 +1,9 @@
 {
-  "type": "module",
-  "name": "decompiler",
-  "exports": {
-    ".": "./src/index.ts",
-    "./bitfields": "./src/bitfields.ts",
-    "./opcodes": "./src/opcodes.ts"
-  }
+	"type": "module",
+	"name": "decompiler",
+	"exports": {
+		".": "./src/index.ts",
+		"./bitfields": "./src/bitfields.ts",
+		"./opcodes": "./src/opcodes.ts"
+	}
 }

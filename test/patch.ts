@@ -5,7 +5,7 @@ import { padSize } from "../utils/index.ts";
 const data = new Uint8Array(await readFile("./test/sample.hbc"));
 
 const file = await parseModule((_, byteOffset, byteLength, callback) => {
-  callback(data.subarray(byteOffset, byteOffset + byteLength));
+	callback(data.subarray(byteOffset, byteOffset + byteLength));
 });
 
 const dumped = dumpFile(file);
@@ -13,72 +13,72 @@ const dumped = dumpFile(file);
 console.log(data.length, dumped.length);
 
 for (let i = 0; i < data.length; i++) {
-  if (data[i] === dumped[i]) continue;
+	if (data[i] === dumped[i]) continue;
 
-  console.log(`File differs from ${i}: `);
-  console.log(data.slice(i));
-  console.log(dumped.slice(i));
-  break;
+	console.log(`File differs from ${i}: `);
+	console.log(data.slice(i));
+	console.log(dumped.slice(i));
+	break;
 }
 
 console.log(file.header);
 console.log(file.functions);
 
 function dumpHeader(header: BytecodeHeader, data: Uint8Array) {
-  const view = new DataView(data.buffer);
+	const view = new DataView(data.buffer);
 
-  view.setBigInt64(0, HERMES_SIGNATURE, true);
+	view.setBigInt64(0, HERMES_SIGNATURE, true);
 
-  let i = 8;
-  for (const field in header) {
-    if (field === "hash") {
-      data.set(header[field], i);
-      i += 20;
-    } else {
-      view.setUint32(i, (header as any)[field], true);
-      i += 4;
-    }
-  }
+	let i = 8;
+	for (const field in header) {
+		if (field === "hash") {
+			data.set(header[field], i);
+			i += 20;
+		} else {
+			view.setUint32(i, (header as any)[field], true);
+			i += 4;
+		}
+	}
 }
 
 function dumpFile(module: BytecodeModule): Uint8Array {
-  const parts = [
-    new Uint8Array(128),
-    ...Object.values(module.segments),
-    ...module.functions.map(h => h.bytecode),
-  ];
+	const parts = [
+		new Uint8Array(128),
+		...Object.values(module.segments),
+		...module.functions.map(h => h.bytecode),
+	];
 
-  for (const func of module.functions) {
-    if (func.header.hasExceptionHandler) {
-      parts.push(new Uint8Array(4));
-    }
+	for (const func of module.functions) {
+		if (func.header.hasExceptionHandler) {
+			parts.push(new Uint8Array(4));
+		}
 
-    if (func.header.hasDebugInfo) {
-      parts.push(new Uint8Array(12));
-    }
-  }
+		if (func.header.hasDebugInfo) {
+			parts.push(new Uint8Array(12));
+		}
+	}
 
-  parts.push(
-    new Uint8Array(
-      module.buffer,
-      module.header.debugInfoOffset,
-      module.header.fileLength - module.header.debugInfoOffset, // - 20 (file ends with hash)
-    ),
-  );
+	parts.push(
+		new Uint8Array(
+			module.buffer,
+			module.header.debugInfoOffset,
+			module.header.fileLength - module.header.debugInfoOffset, // - 20 (file ends with hash)
+		),
+	);
 
-  const size = parts.reduce((acc, x) => acc + x.byteLength, 0);
+	const size = parts.reduce((acc, x) => acc + x.byteLength, 0);
 
-  // module.header.fileLength = size;
+	// module.header.fileLength = size;
 
-  dumpHeader(module.header, parts[0]);
+	dumpHeader(module.header, parts[0]);
 
-  const data = new Uint8Array(size);
+	const data = new Uint8Array(size);
 
-  let i = 0;
-  for (const part of parts) {
-    data.set(part, i);
-    i += part.byteLength;
-  }
+	let i = 0;
+	for (const part of parts) {
+		data.set(part, i);
+		i += part.byteLength;
+	}
 
-  return data;
+	return data;
 }

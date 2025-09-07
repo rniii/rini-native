@@ -1,6 +1,6 @@
 packages:
-  - decompiler/
-  - explorer/
+	- decompiler/
+	- explorer/
 
 onlyBuiltDependencies:
-  - esbuild
+	- esbuild

@@ -1,20 +1,20 @@
 {
-  "type": "module",
-  "scripts": {
-    "dev": "pnpm -C explorer exec vite",
-    "test": "node ./test/index.ts",
-    "lint": "dprint check",
-    "lint:fix": "dprint fmt",
-    "extract": "node ./scripts/extract.ts",
-    "disasm": "node ./disasm.ts"
-  },
-  "devDependencies": {
-    "@types/node": "^24.0.15",
-    "dprint": "^0.50.1",
-    "esbuild": "^0.25.8",
-    "fflate": "^0.8.2"
-  },
-  "dependencies": {
-    "decompiler": "workspace:^"
-  }
+	"type": "module",
+	"scripts": {
+		"dev": "pnpm -C explorer exec vite",
+		"test": "node ./test/index.ts",
+		"lint": "dprint check",
+		"lint:fix": "dprint fmt",
+		"extract": "node ./scripts/extract.ts",
+		"disasm": "node ./disasm.ts"
+	},
+	"devDependencies": {
+		"@types/node": "^24.0.15",
+		"dprint": "^0.50.1",
+		"esbuild": "^0.25.8",
+		"fflate": "^0.8.2"
+	},
+	"dependencies": {
+		"decompiler": "workspace:^"
+	}
 }

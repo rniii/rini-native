@@ -23,29 +23,28 @@ export class Bitfield<K extends string> {
         });
     }
 
-    parse(buffer: Uint8Array) {
-        const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+    parse(view: DataView, offset: number = 0) {
         const value = {} as { [P in K]: number };
 
         for (const [field, segment] of this.#segments) {
-            value[field] = ((view.getInt32(segment.byte, true) >> segment.shift) & segment.mask) >>> 0;
+            value[field] = ((view.getInt32(offset + segment.byte, true) >> segment.shift) & segment.mask) >>> 0;
         }
 
         return value;
     }
 
-    parseArray(buffer: Uint8Array, count: number) {
+    parseArray(buffer: Uint8Array) {
         const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
         const result = [] as { [P in K]: number }[];
 
         const step = this.byteSize;
-        const end = count * step;
+        const end = buffer.byteLength;
 
-        for (let i = 0; i < end; i += step) {
+        for (let offset = 0; offset < end; offset += step) {
             const value = {} as { [P in K]: number };
 
             for (const [field, segment] of this.#segments) {
-                value[field] = ((view.getInt32(i + segment.byte, true) >> segment.shift) & segment.mask) >>> 0;
+                value[field] = ((view.getInt32(offset + segment.byte, true) >> segment.shift) & segment.mask) >>> 0;
             }
 
             result.push(value);

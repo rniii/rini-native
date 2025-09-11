@@ -2,8 +2,9 @@ import { type BytecodeFunction, parseModule } from "decompiler";
 import { bigIntOperands, Builtin, functionOperands, Opcode, opcodeTypes, stringOperands } from "decompiler/opcodes";
 import { appendFile, open, writeFile } from "fs/promises";
 import { CYAN, drawGutter, GREEN, PURPLE, RESET } from "./src/formatting.ts";
+import { instrument } from "./test/profiling.ts";
 
-await using bundle = await open("discord/bundle.hbc");
+await using bundle = await open(process.argv[2] ?? "discord/bundle.hbc");
 
 const { size } = await bundle.stat();
 const buffer = new ArrayBuffer(size);
@@ -14,18 +15,20 @@ const hermes = parseModule(buffer);
 
 await writeFile("bytecode.ansi", "");
 
-for (const func of hermes.functions) {
-    await appendFile("bytecode.ansi", disassemble(func));
+const disassemble = instrument("disassemble", disassemble_);
+
+for (let i = 0; i < hermes.functions.length; ++i) {
+    await appendFile("bytecode.ansi", disassemble(hermes.functions[i], i));
 }
 
 // this is bad
-function disassemble({ header, bytecode }: BytecodeFunction) {
+function disassemble_({ header, bytecode }: BytecodeFunction, index: number) {
     const view = new DataView(bytecode.buffer, bytecode.byteOffset, bytecode.byteLength);
 
     const name = hermes.strings[header.functionName] || "<closure>";
     const addr = "0x" + header.offset.toString(16).padStart(8, "0");
-    const mangled = `${CYAN}${name}@${GREEN}${addr}${RESET}`;
-    const params = Array.from(Array(header.paramCount), (_, i) => `r${i}`).join(", ");
+    const mangled = `${CYAN}#${index}: ${name}${GREEN}@${addr}${RESET}`;
+    const params = Array.from(Array(header.paramCount), (_, i) => `p${i}`).join(", ");
 
     let lines: string[] = [];
     const addresses: number[] = [];
@@ -34,7 +37,7 @@ function disassemble({ header, bytecode }: BytecodeFunction) {
     const jumpTargets: number[] = [];
 
     let i = 0;
-    while (i < bytecode.length) {
+    while (i < header.bytecodeSizeInBytes) {
         addresses.push(i);
         addr2line[i] = lines.length;
 
@@ -102,6 +105,8 @@ function disassemble({ header, bytecode }: BytecodeFunction) {
         if (op === Opcode.CreateEnvironment) ann += ` envSize=${header.environmentSize}`;
 
         if (ann) src = src.padEnd(52) + ` ${CYAN};${ann}`;
+
+        src += RESET;
 
         lines.push(src);
     }

@@ -9,8 +9,10 @@ import {
     stringKind,
     stringTableEntry,
 } from "./bitfields.ts";
+import type { Opcode } from "./opcodes.ts";
 
 export type DebugOffset = [sourceLocation: number, scopeDescriptor: number, callees: number];
+export type ExceptionHandler = [start: number, end: number, target: number];
 
 export type BytecodeHeader = ReturnType<typeof parseHeader>;
 export type BytecodeModule = ReturnType<typeof parseModule>;
@@ -88,23 +90,16 @@ export function segmentFile(header: BytecodeHeader) {
 }
 
 export function parseModule(buffer: ArrayBuffer) {
+    const view = new DataView(buffer);
+
     const header = parseHeader(new Uint8Array(buffer, 0, 128));
     const segments = mapValues(segmentFile(header), p => new Uint8Array(buffer, ...p));
 
-    const functionHeaders = smallFunctionHeader.parseArray(
-        segments.functionHeaders,
-        header.functionCount,
-    );
+    const functionHeaders = smallFunctionHeader.parseArray(segments.functionHeaders);
 
-    const stringTable = stringTableEntry.parseArray(
-        segments.stringTable,
-        header.stringCount,
-    );
+    const stringTable = stringTableEntry.parseArray(segments.stringTable);
 
-    const overflowStringTable = offsetLengthPair.parseArray(
-        segments.overflowStringTable,
-        header.overflowStringCount,
-    );
+    const overflowStringTable = offsetLengthPair.parseArray(segments.overflowStringTable);
 
     const strings = stringTable.map(({ isUtf16, length, offset }) => {
         if (length === 0xff) ({ length, offset } = overflowStringTable[offset]);
@@ -114,7 +109,7 @@ export function parseModule(buffer: ArrayBuffer) {
         return (isUtf16 ? Utf16D : Utf8D).decode(slice);
     });
 
-    const bigIntTable = offsetLengthPair.parseArray(segments.bigIntTable, header.bigIntCount);
+    const bigIntTable = offsetLengthPair.parseArray(segments.bigIntTable);
 
     const bigInts = bigIntTable.map(({ offset, length }) => (
         toBigInt(segments.bigIntStorage.subarray(offset, offset + length))
@@ -123,39 +118,47 @@ export function parseModule(buffer: ArrayBuffer) {
     for (const smallHeader of functionHeaders) {
         if (!smallHeader.overflowed) continue;
 
-        const largeHeader = largeFunctionHeader.parse(
-            new Uint8Array(buffer, getLargeOffset(smallHeader), largeFunctionHeader.byteSize),
-        );
+        const largeHeader = largeFunctionHeader.parse(view, getLargeOffset(smallHeader));
 
         Object.assign(smallHeader, largeHeader);
         smallHeader.overflowed = 1;
     }
 
-    const view = new DataView(buffer);
-
     const functions = functionHeaders.map(header => {
-        let i = header.infoOffset;
-        if (header.overflowed) i += largeFunctionHeader.byteSize;
+        let offset = header.infoOffset;
+        if (header.overflowed) offset += largeFunctionHeader.byteSize;
 
-        let exceptionHandler: number | undefined;
+        let exceptionHandlers = [] as ExceptionHandler[];
         if (header.hasExceptionHandler) {
-            exceptionHandler = view.getUint32(i, true);
-            i += 4;
+            const count = view.getUint32(offset, true);
+            offset += 4;
+
+            for (let i = 0; i < count; ++i) {
+                exceptionHandlers.push([
+                    view.getUint32(offset, true),
+                    view.getUint32(offset + 4, true),
+                    view.getUint32(offset + 8, true),
+                ]);
+                offset += 12;
+            }
         }
 
         let debugOffset: DebugOffset | undefined;
         if (header.hasDebugInfo) {
             debugOffset = [
-                view.getUint32(i, true),
-                view.getUint32(i + 4, true),
-                view.getUint32(i + 8, true),
+                view.getUint32(offset, true),
+                view.getUint32(offset + 4, true),
+                view.getUint32(offset + 8, true),
             ];
+            offset += 12;
         }
+
+        const bytecode = new Uint8Array(buffer, header.offset, header.bytecodeSizeInBytes);
 
         return {
             header,
-            bytecode: new Uint8Array(buffer, header.offset, header.bytecodeSizeInBytes),
-            exceptionHandler,
+            bytecode,
+            exceptionHandlers,
             debugOffset,
         };
     });
@@ -173,4 +176,6 @@ export function parseModule(buffer: ArrayBuffer) {
 const Utf8D = new TextDecoder("utf-8");
 const Utf16D = new TextDecoder("utf-16");
 
-const getLargeOffset = (smallHeader: FunctionHeader) => ((smallHeader.infoOffset << 16) | smallHeader.offset) >>> 0;
+function getLargeOffset(smallHeader: FunctionHeader) {
+    return ((smallHeader.infoOffset << 16) | smallHeader.offset) >>> 0;
+}

@@ -2,14 +2,14 @@ import { type BytecodeModule, parseModule } from "decompiler";
 import { createResource, createSignal, type Setter, Suspense } from "solid-js";
 import { formatSizeUnit } from "../../utils/index.ts";
 
-export const App = () => {
+export function App() {
     const [progress, setProgress] = createSignal<[number, number]>([0, 0]);
 
     const [bundle] = createResource(async () => {
         const startTime = performance.now();
 
         const buffer = await readData(setProgress);
-        const hermes = await parseModule(buffer);
+        const hermes = parseModule(buffer);
 
         return {
             hermes,
@@ -29,19 +29,19 @@ export const App = () => {
             <View {...bundle()!} />
         </Suspense>
     );
-};
+}
 
-const View = (bundle: {
+function View(bundle: {
     hermes?: BytecodeModule;
     parseTime?: number;
-}) => {
+}) {
     return (
         <div>
             Hermes file v{bundle.hermes?.header.version} ({bundle.parseTime}ms) <br />
             {bundle.hermes && formatSizeUnit(bundle.hermes?.header.fileLength)}
         </div>
     );
-};
+}
 
 async function readData(setProgress: Setter<[number, number]>) {
     const file = await fetch("bundle.hbc");

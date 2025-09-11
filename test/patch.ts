@@ -4,9 +4,7 @@ import { padSize } from "../utils/index.ts";
 
 const data = new Uint8Array(await readFile("./test/sample.hbc"));
 
-const file = await parseModule((_, byteOffset, byteLength, callback) => {
-    callback(data.subarray(byteOffset, byteOffset + byteLength));
-});
+const file = parseModule(data.buffer);
 
 const dumped = dumpFile(file);
 
@@ -44,17 +42,24 @@ function dumpHeader(header: BytecodeHeader, data: Uint8Array) {
 function dumpFile(module: BytecodeModule): Uint8Array {
     const parts = [
         new Uint8Array(128),
-        ...Object.values(module.segments),
+        ...Object.values(module.segments).map(s => [s, new Uint8Array(padSize(s.length) - s.length)]).flat(),
         ...module.functions.map(h => h.bytecode),
     ];
 
+    parts.push(new Uint8Array(2));
+
     for (const func of module.functions) {
+        if (func.header.overflowed) {
+            throw "fish";
+        }
+
         if (func.header.hasExceptionHandler) {
-            parts.push(new Uint8Array(4));
+            parts.push(new Uint8Array(new Uint32Array([func.exceptionHandlers.length]).buffer));
+            parts.push(new Uint8Array(new Uint32Array(func.exceptionHandlers.flat()).buffer));
         }
 
         if (func.header.hasDebugInfo) {
-            parts.push(new Uint8Array(12));
+            parts.push(new Uint8Array(new Uint32Array(func.debugOffset!).buffer));
         }
     }
 

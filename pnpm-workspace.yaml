@@ -3,4 +3,5 @@ packages:
   - explorer/
 
 onlyBuiltDependencies:
+  - dprint
   - esbuild

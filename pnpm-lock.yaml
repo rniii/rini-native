@@ -11,6 +11,9 @@ importers:
       decompiler:
         specifier: workspace:^
         version: link:decompiler
+      hermeslib:
+        specifier: link:hermeslib
+        version: link:hermeslib
     devDependencies:
       '@types/node':
         specifier: ^24.0.15

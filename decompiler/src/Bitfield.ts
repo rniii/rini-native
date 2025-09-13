@@ -3,14 +3,14 @@ import { entries, padSize } from "../../utils/index.ts";
 export class Bitfield<K extends string> {
     bitSize: number;
     byteSize: number;
-    #segments: [K, { byte: number; mask: number; shift: number }][];
+    private segments: [K, { byte: number; mask: number; shift: number }][];
 
     constructor(public fields: Record<K, number>) {
         this.bitSize = entries(fields).reduce((a, [, b]) => a + b, 0);
         this.byteSize = padSize(Math.ceil(this.bitSize / 8));
 
         let bit = 0;
-        this.#segments = entries(fields).map(([name, bitSize]) => {
+        this.segments = entries(fields).map(([name, bitSize]) => {
             if (bitSize > 32) throw Error(`Field "${name}" is larger than 32 bits`);
             if (bit % 32 + bitSize > 32) throw Error(`Field "${name}" is misaligned`);
 
@@ -26,7 +26,7 @@ export class Bitfield<K extends string> {
     parse(view: DataView, offset: number = 0) {
         const value = {} as { [P in K]: number };
 
-        for (const [field, segment] of this.#segments) {
+        for (const [field, segment] of this.segments) {
             value[field] = ((view.getInt32(offset + segment.byte, true) >> segment.shift) & segment.mask) >>> 0;
         }
 
@@ -43,7 +43,7 @@ export class Bitfield<K extends string> {
         for (let offset = 0; offset < end; offset += step) {
             const value = {} as { [P in K]: number };
 
-            for (const [field, segment] of this.#segments) {
+            for (const [field, segment] of this.segments) {
                 value[field] = ((view.getInt32(offset + segment.byte, true) >> segment.shift) & segment.mask) >>> 0;
             }
 

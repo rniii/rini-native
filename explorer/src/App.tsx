@@ -1,4 +1,4 @@
-import { type BytecodeModule, parseModule } from "decompiler";
+import { HermesModule, parseHermesModule } from "decompiler";
 import { createResource, createSignal, type Setter, Suspense } from "solid-js";
 import { formatSizeUnit } from "../../utils/index.ts";
 
@@ -9,7 +9,7 @@ export function App() {
         const startTime = performance.now();
 
         const buffer = await readData(setProgress);
-        const hermes = parseModule(buffer);
+        const hermes = parseHermesModule(buffer);
 
         return {
             hermes,
@@ -32,13 +32,12 @@ export function App() {
 }
 
 function View(bundle: {
-    hermes?: BytecodeModule;
+    hermes?: HermesModule;
     parseTime?: number;
 }) {
     return (
         <div>
-            Hermes file v{bundle.hermes?.header.version} ({bundle.parseTime}ms) <br />
-            {bundle.hermes && formatSizeUnit(bundle.hermes?.header.fileLength)}
+            Hermes file ({bundle.parseTime}ms) <br />
         </div>
     );
 }

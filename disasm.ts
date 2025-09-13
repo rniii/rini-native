@@ -1,28 +1,25 @@
-import { type BytecodeFunction, parseModule } from "decompiler";
+import { parseHermesModule } from "decompiler";
 import { bigIntOperands, Builtin, functionOperands, Opcode, opcodeTypes, stringOperands } from "decompiler/opcodes";
-import { appendFile, open, writeFile } from "fs/promises";
+import { appendFile, writeFile } from "fs/promises";
 import { CYAN, drawGutter, GREEN, PURPLE, RESET } from "./src/formatting.ts";
+import { readArrayBuffer } from "./test/common.ts";
 import { instrument } from "./test/profiling.ts";
 
-await using bundle = await open(process.argv[2] ?? "discord/bundle.hbc");
-
-const { size } = await bundle.stat();
-const buffer = new ArrayBuffer(size);
-await bundle.read(new Uint8Array(buffer));
-await bundle.close();
-
-const hermes = parseModule(buffer);
+const buffer = await readArrayBuffer(process.argv[2] ?? "discord/bundle.hbc");
+const hermes = parseHermesModule(buffer);
 
 await writeFile("bytecode.ansi", "");
 
 const disassemble = instrument("disassemble", disassemble_);
 
 for (let i = 0; i < hermes.functions.length; ++i) {
+    process.stdout.write(`${i} / ${hermes.functions.length} functions\r`);
+
     await appendFile("bytecode.ansi", disassemble(hermes.functions[i], i));
 }
 
 // this is bad
-function disassemble_({ header, bytecode }: BytecodeFunction, index: number) {
+function disassemble_({ header, bytecode }: (typeof hermes)["functions"][number], index: number) {
     const view = new DataView(bytecode.buffer, bytecode.byteOffset, bytecode.byteLength);
 
     const name = hermes.strings[header.functionName] || "<closure>";

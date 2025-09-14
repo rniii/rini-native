@@ -1,4 +1,6 @@
 import type { FunctionHeader } from "./bitfields.ts";
+import { Instruction } from "./instruction.ts";
+import { Opcode } from "./opcodes.ts";
 
 export { parseHermesModule } from "./moduleParser.ts";
 
@@ -27,20 +29,41 @@ export class HermesModule {
 
 export class HermesFunction {
     debugOffsets?: DebugOffsets;
-    exceptionHandlers = [] as ExceptionHandler[];
+    exceptionHandlers: ExceptionHandler[] = [];
 
     constructor(
         public header: FunctionHeader,
         public bytecode: Uint8Array,
         public jumpTables?: Uint8Array,
     ) {}
+
+    *instructions() {
+        const bc = this.bytecode;
+        const view = new DataView(bc.buffer, bc.byteOffset, bc.byteLength);
+
+        let ip = 0;
+        while (ip < bc.byteLength) {
+            const instr = new Instruction(ip, view);
+            ip += instr.width;
+
+            yield instr;
+        }
+    }
 }
 
 export class HermesString {
+    contents: string;
+
     constructor(
+        public key: number,
         public bytes: Uint8Array,
         public isUtf16: boolean,
-    ) {}
+    ) {
+        this.contents = (isUtf16 ? Utf16D : Utf8D).decode(bytes);
+    }
 }
+
+const Utf8D = new TextDecoder("utf-8");
+const Utf16D = new TextDecoder("utf-16");
 
 export class HermesIdentifier extends HermesString {}

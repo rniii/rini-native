@@ -5,8 +5,9 @@
         "test": "node ./test/index.ts",
         "lint": "dprint check",
         "lint:fix": "dprint fmt",
+        "start": "node ./src/patcher.ts",
         "extract": "node ./scripts/extract.ts",
-        "disasm": "node ./disasm.ts"
+        "disasm": "node ./scripts/disasm.ts"
     },
     "devDependencies": {
         "@types/node": "^24.0.15",

@@ -64,13 +64,12 @@ export function parseHermesModule(buffer: ArrayBuffer): HermesModule {
             ? overflowStringTable[entry.offset]
             : entry;
 
-        // `stringKinds` is a very short run-length encoding so this is usually 3 iterations
-        const kind = stringKinds.find(x => (i -= x.count) < 0)!.kind;
+        const { kind } = findRLEIndex(stringKinds, i)!;
         const bytes = segments.stringStorage.subarray(offset, offset + length * (isUtf16 ? 2 : 1));
 
         return kind === 1
-            ? new HermesIdentifier(bytes, !!isUtf16)
-            : new HermesString(bytes, !!isUtf16);
+            ? new HermesIdentifier(i, bytes, !!isUtf16)
+            : new HermesString(i, bytes, !!isUtf16);
     });
 
     const bigIntTable = offsetLengthPair.parseArray(segments.bigIntTable);
@@ -171,6 +170,10 @@ export function parseHermesModule(buffer: ArrayBuffer): HermesModule {
     );
 
     return module;
+}
+
+function findRLEIndex<T extends { count: number }>(arr: T[], index: number): T | undefined {
+    return arr.find(x => (index -= x.count) < 0);
 }
 
 function getLargeOffset(smallHeader: FunctionHeader) {

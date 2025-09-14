@@ -2,19 +2,22 @@ import { transpose } from "../utils/index.ts";
 
 export const ansiColor = (c?: number) => `\x1b[${c ?? ""}m`;
 export const rgbColor = (r: number, g: number, b: number) => `\x1b[38;2;${r};${g};${b}m`;
-export const RED = ansiColor(31);
-export const GREEN = ansiColor(32);
-export const YELLOW = ansiColor(33);
-export const BLUE = ansiColor(34);
-export const PURPLE = ansiColor(35);
-export const CYAN = ansiColor(36);
-export const LIGHT_RED = ansiColor(91);
-export const LIGHT_GREEN = ansiColor(92);
-export const LIGHT_YELLOW = ansiColor(93);
-export const LIGHT_BLUE = ansiColor(94);
-export const LIGHT_PURPLE = ansiColor(95);
-export const LIGHT_CYAN = ansiColor(95);
-export const RESET = ansiColor();
+
+export const Color = {
+    Red: ansiColor(31),
+    Green: ansiColor(32),
+    Yellow: ansiColor(33),
+    Blue: ansiColor(34),
+    Purple: ansiColor(35),
+    Cyan: ansiColor(36),
+    LightRed: ansiColor(91),
+    LightGreen: ansiColor(92),
+    LightYellow: ansiColor(93),
+    LightBlue: ansiColor(94),
+    LightPurple: ansiColor(95),
+    LightCyan: ansiColor(96),
+    Reset: ansiColor(),
+}
 
 const enum GutterTileType {
     EMPTY = 0,
@@ -189,7 +192,7 @@ export function drawGutter(length: number, pointers: Pointer[], opts: GutterOpti
     function drawTile(tile: GutterTile, sprite = SPRITES[tile.type]) {
         if (opts.curved) sprite = CURVED[sprite] ?? sprite;
         if (opts.colors && tile.dest != null) {
-            sprite = getColor(tile.dest) + sprite + RESET;
+            sprite = getColor(tile.dest) + sprite + Color.Reset;
         }
         return sprite;
     }

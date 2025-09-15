@@ -4,13 +4,19 @@ import { readArrayBuffer } from "../test/common.ts";
 import { formatSizeUnit, mapValues } from "../utils/index.ts";
 import { disassemble } from "./disasm.ts";
 import { Rope } from "./rope.ts";
+import type { ParsedArguments } from "../decompiler/src/instruction.ts"
 
-type Operand = number | string | typeof Any;
-type InstructionQuery = [Opcode, ...operands: Operand[]];
+type OperandsQuery<Op extends Opcode> = ParsedArguments<Op> extends infer ParsedArgs extends any[] ? {
+    [Index in keyof ParsedArgs]: ParsedArgs[Index] | typeof Any;
+} : never;
+type InstructionQuery<Op extends Opcode = Opcode> = Op extends unknown ? [Op, ...OperandsQuery<Op>] : never;
+
+type a = InstructionQuery<Opcode.GetById>;
+//   ^?
 
 const Any = Symbol();
 
-function matchInstruction<Q extends InstructionQuery>(instr: Instruction, query: Q) {
+function matchInstruction<Op extends Opcode>(instr: Instruction, query: InstructionQuery<Op>) {
     if (query[0] !== instr.opcode) return false;
 
     let i = 0;

@@ -56,6 +56,8 @@ export const opcodeTypes = { // {{{
 ${entries(opcodes).map(([op, args]) => `    [Opcode.${op}]: [${args.map(a => `ArgType.${a}`).join(", ")}],`).join("\n")}
 } as const; // }}}
 
+export type OperandMap = Readonly<Partial<Record<Opcode, readonly number[]>>>;
+
 /**
  * Opcodes which have operands referring to the bigint table.
  */
@@ -63,7 +65,7 @@ const BIGINT_OPERANDS = { // {{{
 ${entries(bigIntOps).map(([op, args]) => `    [Opcode.${op}]: [${args.join(", ")}],`).join("\n")}
 } as const; // }}}
 export type BigIntOperandMap = typeof BIGINT_OPERANDS;
-export const bigintOperands: Readonly<Partial<Record<Opcode, readonly number[]>>> = BIGINT_OPERANDS;
+export const bigintOperands: OperandMap = BIGINT_OPERANDS;
 
 /**
  * Opcodes which have operands referring to the function table.
@@ -72,7 +74,7 @@ const FUNCTION_OPERANDS = { // {{{
 ${entries(functionOps).map(([op, args]) => `    [Opcode.${op}]: [${args.join(", ")}],`).join("\n")}
 } as const; // }}}
 export type FunctionOperandMap =   typeof FUNCTION_OPERANDS;
-export const functionOperands: Readonly<Partial<Record<Opcode, readonly number[]>>> = FUNCTION_OPERANDS;
+export const functionOperands: OperandMap = FUNCTION_OPERANDS;
 
 /**
  * Opcodes which have operands referring to the string table.
@@ -81,7 +83,7 @@ const STRING_OPERANDS = { // {{{
 ${entries(stringOps).map(([op, args]) => `    [Opcode.${op}]: [${args.join(", ")}],`).join("\n")}
 } as const; // }}}
 export type StringOperandMap = typeof STRING_OPERANDS;
-export const stringOperands: Readonly<Partial<Record<Opcode, readonly number[]>>> = STRING_OPERANDS;
+export const stringOperands: OperandMap = STRING_OPERANDS;
 
 export enum Builtin { // {{{
 ${builtins.map(x => `    "${x}",`).join("\n")}

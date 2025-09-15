@@ -1,5 +1,5 @@
 import { mapValues } from "../../utils/index.ts";
-import { ArgType, type BigIntOperandMap, bigintOperands, type FunctionOperandMap, functionOperands, type Opcode, opcodeTypes, type StringOperandMap, stringOperands } from "./opcodes.ts";
+import { ArgType, type BigIntOperandMap, bigintOperands, type FunctionOperandMap, functionOperands, type Opcode, opcodeTypes, type OperandMap, type StringOperandMap, stringOperands } from "./opcodes.ts";
 
 const argWidths: Record<ArgType, number> = {
     [ArgType.UInt8]: 1,
@@ -28,27 +28,33 @@ const opcodeWidths = mapValues(opcodeTypes, args => (
 
 type ArgTypes<Op extends Opcode> = typeof opcodeTypes[Op];
 
-export type ParsedInstruction<Op extends Opcode>
+export type ParsedInstruction<Op extends Opcode = Opcode>
     = Op extends unknown
     ? [Op, ...ParsedArguments<Op>]
     : never;
 
 export type ParsedArguments<
-    Op extends Opcode,
+    Op extends Opcode = Opcode,
     Args extends ArgTypes<Op> = ArgTypes<Op>,
-> = {
+> = Op extends unknown ? {
     [I in keyof Args]: TypedOperand<Op, I & string> extends infer T ? ([T] extends [never] ? TypedArg<Args[I] & ArgType> : T) : never;
-};
+} : never;
 
-export type TypedArg<Arg extends ArgType> = number;
-export type TypedOperand<
+type OperandMapLookup<
+    Map extends OperandMap,
     Op extends Opcode,
-    I extends string,
->
-    = StringOperandMap extends { [K in Op]: readonly (infer Idxs extends number)[] } ? (I extends `${Idxs}` ? string : never)
-    : BigIntOperandMap extends { [K in Op]: readonly (infer Idxs extends number)[] } ? (I extends `${Idxs}` ? bigint : never)
-    : FunctionOperandMap extends { [K in Op]: readonly (infer Idxs extends number)[] } ? (I extends `${Idxs}` ? number : never)
-    : never;
+    Index extends string,
+    T,
+> = Map extends { [K in Op]: readonly (infer Indices extends number)[] } ? (Index extends `${Indices}` ? T : never) : never;
+
+type TypedArg<Arg extends ArgType> = number;
+type TypedOperand<
+    Op extends Opcode,
+    Index extends string,
+> =
+    | OperandMapLookup<StringOperandMap, Op, Index, string>
+    | OperandMapLookup<BigIntOperandMap, Op, Index, bigint>
+    | OperandMapLookup<FunctionOperandMap, Op, Index, number>;
 
 export function isValidOpcode(opcode: number): opcode is Opcode {
     return opcode in opcodeTypes;

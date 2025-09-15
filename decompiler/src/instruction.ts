@@ -1,5 +1,5 @@
 import { mapValues } from "../../utils/index.ts";
-import { ArgType, BIGINT_OPERANDS, bigIntOperands, FUNCTION_OPERANDS, functionOperands, type Opcode, opcodeTypes, STRING_OPERANDS, stringOperands } from "./opcodes.ts";
+import { ArgType, type BigIntOperandMap, bigintOperands, type FunctionOperandMap, functionOperands, type Opcode, opcodeTypes, type StringOperandMap, stringOperands } from "./opcodes.ts";
 
 const argWidths: Record<ArgType, number> = {
     [ArgType.UInt8]: 1,
@@ -30,27 +30,25 @@ type ArgTypes<Op extends Opcode> = typeof opcodeTypes[Op];
 
 export type ParsedInstruction<Op extends Opcode>
     = Op extends unknown
-    ? [Op, ParsedArguments<Op>]
+    ? [Op, ...ParsedArguments<Op>]
     : never;
 
 export type ParsedArguments<
     Op extends Opcode,
     Args extends ArgTypes<Op> = ArgTypes<Op>,
 > = {
-    [I in keyof Args]: TypedOperand<Op, I & string> extends infer T ? ([T] extends [never] ? "Default<Args[I]>" : T) : never;
+    [I in keyof Args]: TypedOperand<Op, I & string> extends infer T ? ([T] extends [never] ? TypedArg<Args[I] & ArgType> : T) : never;
 };
 
+export type TypedArg<Arg extends ArgType> = number;
 export type TypedOperand<
     Op extends Opcode,
     I extends string,
 >
-    = typeof STRING_OPERANDS extends { [K in Op]: readonly (infer Idxs extends number)[] } ? (I extends `${Idxs}` ? string : never)
-    : typeof BIGINT_OPERANDS extends { [K in Op]: readonly (infer Idxs extends number)[] } ? (I extends `${Idxs}` ? bigint : never)
-    : typeof FUNCTION_OPERANDS extends { [K in Op]: readonly (infer Idxs extends number)[] } ? (I extends `${Idxs}` ? "function" : never)
+    = StringOperandMap extends { [K in Op]: readonly (infer Idxs extends number)[] } ? (I extends `${Idxs}` ? string : never)
+    : BigIntOperandMap extends { [K in Op]: readonly (infer Idxs extends number)[] } ? (I extends `${Idxs}` ? bigint : never)
+    : FunctionOperandMap extends { [K in Op]: readonly (infer Idxs extends number)[] } ? (I extends `${Idxs}` ? number : never)
     : never;
-
-type a = ParsedArguments<Opcode.GetById>;
-//   ^?
 
 export function isValidOpcode(opcode: number): opcode is Opcode {
     return opcode in opcodeTypes;
@@ -102,15 +100,15 @@ export class Instruction {
         }
     }
 
-    functionOperands(): number[] | undefined {
+    functionOperands() {
         return functionOperands[this.opcode];
     }
 
-    bigIntOperands(): number[] | undefined {
-        return bigIntOperands[this.opcode];
+    bigintOperands() {
+        return bigintOperands[this.opcode];
     }
 
-    stringOperands(): number[] | undefined {
+    stringOperands() {
         return stringOperands[this.opcode];
     }
 }

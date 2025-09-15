@@ -63,7 +63,7 @@ export function disassemble(module: HermesModule, func: HermesFunction) {
                         note += ` func=#${value} [0x${formatHex(header.offset)}]`;
                         break;
                     }
-                    if (instr.bigIntOperands()?.includes(arg)) {
+                    if (instr.bigintOperands()?.includes(arg)) {
                         line += ` ${module.bigInts[value]}n`;
                         break;
                     }

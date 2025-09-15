@@ -1,5 +1,5 @@
 import { mapValues } from "../../utils/index.ts";
-import { ArgType, bigIntOperands, functionOperands, type Opcode, opcodeTypes, stringOperands } from "./opcodes.ts";
+import { ArgType, BIGINT_OPERANDS, bigIntOperands, FUNCTION_OPERANDS, functionOperands, type Opcode, opcodeTypes, STRING_OPERANDS, stringOperands } from "./opcodes.ts";
 
 const argWidths: Record<ArgType, number> = {
     [ArgType.UInt8]: 1,
@@ -25,6 +25,36 @@ const operandIndexes = mapValues(opcodeTypes, args => {
 const opcodeWidths = mapValues(opcodeTypes, args => (
     args.reduce((acc, arg) => acc + argWidths[arg], 1)
 ));
+
+type ArgTypes<Op extends Opcode> = typeof opcodeTypes[Op];
+
+export type ParsedInstruction<Op extends Opcode>
+    = Op extends unknown
+    ? [Op, ParsedArguments<Op>]
+    : never;
+
+export type ParsedArguments<
+    Op extends Opcode,
+    Args extends ArgTypes<Op> = ArgTypes<Op>,
+> = {
+    [I in keyof Args]: TypedOperand<Op, I & string> extends infer T ? ([T] extends [never] ? "Default<Args[I]>" : T) : never;
+};
+
+export type TypedOperand<
+    Op extends Opcode,
+    I extends string,
+>
+    = typeof STRING_OPERANDS extends { [K in Op]: readonly (infer Idxs extends number)[] } ? (I extends `${Idxs}` ? string : never)
+    : typeof BIGINT_OPERANDS extends { [K in Op]: readonly (infer Idxs extends number)[] } ? (I extends `${Idxs}` ? bigint : never)
+    : typeof FUNCTION_OPERANDS extends { [K in Op]: readonly (infer Idxs extends number)[] } ? (I extends `${Idxs}` ? "function" : never)
+    : never;
+
+type a = ParsedArguments<Opcode.GetById>;
+//   ^?
+
+export function isValidOpcode(opcode: number): opcode is Opcode {
+    return opcode in opcodeTypes;
+}
 
 export class Instruction {
     opcode: Opcode;

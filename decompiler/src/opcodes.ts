@@ -451,15 +451,16 @@ export const opcodeTypes = { // {{{
 /**
  * Opcodes which have operands referring to the bigint table.
  */
-export const bigIntOperands = { // {{{
+export const BIGINT_OPERANDS = { // {{{
     [Opcode.LoadConstBigInt]: [1],
     [Opcode.LoadConstBigIntLongIndex]: [1],
-} as Record<Opcode, number[]>; // }}}
+} as const; // }}}
+export const bigIntOperands: Readonly<Partial<Record<Opcode, readonly number[]>>> = BIGINT_OPERANDS;
 
 /**
  * Opcodes which have operands referring to the function table.
  */
-export const functionOperands = { // {{{
+export const FUNCTION_OPERANDS = { // {{{
     [Opcode.CallDirect]: [2],
     [Opcode.CreateClosure]: [2],
     [Opcode.CreateClosureLongIndex]: [2],
@@ -469,12 +470,13 @@ export const functionOperands = { // {{{
     [Opcode.CreateAsyncClosureLongIndex]: [2],
     [Opcode.CreateGenerator]: [2],
     [Opcode.CreateGeneratorLongIndex]: [2],
-} as Record<Opcode, number[]>; // }}}
+} as const; // }}}
+export const functionOperands: Readonly<Partial<Record<Opcode, readonly number[]>>> = FUNCTION_OPERANDS;
 
 /**
  * Opcodes which have operands referring to the string table.
  */
-export const stringOperands = { // {{{
+export const STRING_OPERANDS = { // {{{
     [Opcode.DeclareGlobalVar]: [0],
     [Opcode.ThrowIfHasRestrictedGlobalProperty]: [0],
     [Opcode.GetByIdShort]: [3],
@@ -496,7 +498,8 @@ export const stringOperands = { // {{{
     [Opcode.LoadConstString]: [1],
     [Opcode.LoadConstStringLongIndex]: [1],
     [Opcode.CreateRegExp]: [1, 2],
-} as Record<Opcode, number[]>; // }}}
+} as const; // }}}
+export const stringOperands: Readonly<Partial<Record<Opcode, readonly number[]>>> = STRING_OPERANDS;
 
 export enum Builtin { // {{{
     "Array.isArray",

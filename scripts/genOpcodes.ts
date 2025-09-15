@@ -59,23 +59,26 @@ ${entries(opcodes).map(([op, args]) => `    [Opcode.${op}]: [${args.map(a => `Ar
 /**
  * Opcodes which have operands referring to the bigint table.
  */
-export const bigIntOperands = { // {{{
+export const BIGINT_OPERANDS = { // {{{
 ${entries(bigIntOps).map(([op, args]) => `    [Opcode.${op}]: [${args.join(", ")}],`).join("\n")}
-} as Record<Opcode, number[]>; // }}}
+} as const; // }}}
+export const bigIntOperands: Readonly<Partial<Record<Opcode, readonly number[]>>> = BIGINT_OPERANDS;
 
 /**
  * Opcodes which have operands referring to the function table.
  */
-export const functionOperands = { // {{{
+export const FUNCTION_OPERANDS = { // {{{
 ${entries(functionOps).map(([op, args]) => `    [Opcode.${op}]: [${args.join(", ")}],`).join("\n")}
-} as Record<Opcode, number[]>; // }}}
+} as const; // }}}
+export const functionOperands: Readonly<Partial<Record<Opcode, readonly number[]>>> = FUNCTION_OPERANDS;
 
 /**
  * Opcodes which have operands referring to the string table.
  */
-export const stringOperands = { // {{{
+export const STRING_OPERANDS = { // {{{
 ${entries(stringOps).map(([op, args]) => `    [Opcode.${op}]: [${args.join(", ")}],`).join("\n")}
-} as Record<Opcode, number[]>; // }}}
+} as const; // }}}
+export const stringOperands: Readonly<Partial<Record<Opcode, readonly number[]>>> = STRING_OPERANDS;
 
 export enum Builtin { // {{{
 ${builtins.map(x => `    "${x}",`).join("\n")}

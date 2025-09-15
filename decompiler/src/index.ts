@@ -1,7 +1,7 @@
 import type { FunctionHeader } from "./bitfields.ts";
 import { Instruction } from "./instruction.ts";
-import { Opcode } from "./opcodes.ts";
 
+export { Instruction } from "./instruction.ts";
 export { parseHermesModule } from "./moduleParser.ts";
 
 export type ExceptionHandler = [number, number, number];
@@ -32,6 +32,7 @@ export class HermesFunction {
     exceptionHandlers: ExceptionHandler[] = [];
 
     constructor(
+        public id: number,
         public header: FunctionHeader,
         public bytecode: Uint8Array,
         public jumpTables?: Uint8Array,
@@ -55,7 +56,7 @@ export class HermesString {
     contents: string;
 
     constructor(
-        public key: number,
+        public id: number,
         public bytes: Uint8Array,
         public isUtf16: boolean,
     ) {

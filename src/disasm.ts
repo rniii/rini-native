@@ -3,93 +3,91 @@ import { ArgType, Builtin, Opcode, opcodeTypes } from "decompiler/opcodes";
 import { Color as C, drawGutter } from "./formatting.ts";
 
 // this is (still) bad
-export function disassemble(module: HermesModule, func: HermesFunction, index: number) {
+export function disassemble(module: HermesModule, func: HermesFunction) {
     const header = func.header;
 
     const name = module.strings[header.functionName].contents || "(anonymous)";
-    const addr = "0x" + formatHex(header.offset);
-    const mangled = `${C.Cyan}#${index}: ${name}${C.Green}@${addr}${C.Reset}`;
-    const params = Array.from(Array(header.paramCount), (_, i) => `p${i}`).join(", ");
+    const addr = `${C.Green}@0x${formatHex(header.offset)}`;
 
-    let lines: string[] = [];
-    const addresses: number[] = [];
+    let src = `#${func.id} ${C.Cyan}${name}${addr}${C.Reset}():\n`;
+
     const addr2line: number[] = [];
     const jumps = new Map<number, number>();
 
-    for (const instr of func.instructions()) {
-        const ip = instr.ip;
+    func.instructions().forEach((instr, i) => {
+        addr2line[instr.ip] = i;
+
+        const types = opcodeTypes[instr.opcode];
+        const addrArg = types.findIndex(t => t === ArgType.Addr8 || t === ArgType.Addr32);
+
+        if (addrArg >= 0) jumps.set(instr.ip, instr.ip + instr.getOperand(addrArg));
+    });
+
+    const instrCount = (addr2line.at(-1) ?? 0) + 1;
+
+    const pointers = Array.from(jumps, ([from, to]) => ({ from: addr2line[from], to: addr2line[to] }));
+    const gutter = drawGutter(instrCount, pointers, { colors: true, curved: true });
+
+    func.instructions().forEach((instr, i) => {
         const name = Opcode[instr.opcode];
         const types = opcodeTypes[instr.opcode];
 
-        addresses.push(ip);
-        addr2line[ip] = lines.length;
-
-        let src = "";
-        let ann = "";
-
-        src += `${C.Purple}${name}${C.Reset}`;
+        let note = "";
+        let line = `${C.Purple}${name}${C.Reset}`;
 
         instr.operands().forEach((value, arg) => {
             const type = types[arg];
-            if (arg > 0) src += `,`;
+            if (arg > 0) line += `,`;
 
             switch (type) {
                 case ArgType.Reg8:
                 case ArgType.Reg32:
-                    src += ` r${value}`;
+                    line += ` r${value}`;
                     break;
                 case ArgType.Addr8:
                 case ArgType.Addr32:
-                    const addr = ip + value;
-                    src += ` 0x${addr.toString(16).padStart(8, "0")}`;
-                    ann += ` rel=${value >= 0 ? "+" + value : value}`;
-                    jumps.set(ip, addr);
+                    const addr = instr.ip + value;
+                    line += ` 0x${addr.toString(16).padStart(8, "0")}`;
+                    note += ` rel=${value >= 0 ? "+" + value : value}`;
                     break;
                 default:
                     if (instr.stringOperands()?.includes(arg)) {
-                        src += ` ${JSON.stringify(module.strings[value].contents)}`;
-                        ann += ` str=#${value}`;
+                        line += ` ${JSON.stringify(module.strings[value].contents)}`;
+                        note += ` str=#${value}`;
                         break;
                     }
                     if (instr.functionOperands()?.includes(arg)) {
                         const { header } = module.functions[value];
 
-                        src += ` ${module.strings[header.functionName].contents || "(anonymous)"}`;
-                        ann += ` func=#${value} [0x${formatHex(header.offset)}]`;
+                        line += ` ${module.strings[header.functionName].contents || "(anonymous)"}`;
+                        note += ` func=#${value} [0x${formatHex(header.offset)}]`;
                         break;
                     }
                     if (instr.bigIntOperands()?.includes(arg)) {
-                        src += ` ${module.bigInts[value]}n`;
+                        line += ` ${module.bigInts[value]}n`;
                         break;
                     }
                     if (
                         (instr.opcode === Opcode.CallBuiltin || instr.opcode === Opcode.CallBuiltinLong)
                         && arg === 1
                     ) {
-                        src += ` ${Builtin[value]}`;
-                        ann += ` builtin=#${value}`;
+                        line += ` ${Builtin[value]}`;
+                        note += ` builtin=#${value}`;
                         break;
                     }
-                    src += ` ${value}`;
+                    line += ` ${value}`;
                     break;
             }
         });
 
-        if (instr.opcode === Opcode.CreateEnvironment) ann += ` envSize=${header.environmentSize}`;
+        if (instr.opcode === Opcode.CreateEnvironment) note += ` envSize=${header.environmentSize}`;
 
-        if (ann) src = src.padEnd(52) + ` ${C.Cyan};${ann}`;
+        if (note) line = line.padEnd(50) + `  ${C.Cyan};${note}`;
 
-        src += C.Reset;
+        src += `${formatHex(instr.ip)} ${gutter[i]} ${line}${C.Reset}\n`;
+    });
 
-        lines.push(src);
-    }
-
-    const pointers = Array.from(jumps, ([from, to]) => ({ from: addr2line[from], to: addr2line[to] }));
-    const gutter = drawGutter(lines.length, pointers, { colors: true, curved: true });
-
-    lines = lines.map((line, i) => `${formatHex(addresses[i])} ${gutter[i]} ${line}`);
-
-    return `${mangled}(${params}):\n${lines.join("\n")}\n`;
+    return src;
 }
 
 function formatHex(value: number, bytes = 4) {

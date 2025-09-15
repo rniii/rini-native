@@ -69,8 +69,6 @@ export class Instruction {
                 return this.view.getInt32(this.ip + offset, true);
             case ArgType.Double:
                 return this.view.getFloat64(this.ip + offset, true);
-            default:
-                throw type satisfies never;
         }
     }
 

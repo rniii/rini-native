@@ -10,13 +10,11 @@ process.on("exit", () => {
 
 export function instrument<F extends (...args: any[]) => any>(name: string, func: F) {
     let accTime = 0;
-    let avgTime = 0;
     let maxTime = 0;
-    let prevTime = 0;
     let calls = 0;
 
     process.on("beforeExit", () => {
-        instrumentedFuncs[name] = { accTime, avgTime, maxTime, calls };
+        instrumentedFuncs[name] = { accTime, avgTime: accTime / calls, maxTime, calls };
     });
 
     return (...args: Parameters<F>) => {
@@ -25,11 +23,10 @@ export function instrument<F extends (...args: any[]) => any>(name: string, func
 
         const dt = performance.now() - start;
 
-        avgTime += 1 / ++calls * (dt - prevTime);
-        accTime += prevTime = dt;
+        accTime += dt;
         maxTime = Math.max(dt, maxTime);
 
-        return res;
+        return res as ReturnType<F>;
     };
 }
 

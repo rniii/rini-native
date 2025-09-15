@@ -106,7 +106,7 @@ export function parseHermesModule(buffer: ArrayBuffer): HermesModule {
     // first infoOffset always follows last function's bytecode
     if (lastOffset) bytecodeLengths.set(lastOffset, functionHeaders[0].infoOffset - lastOffset);
 
-    module.functions = functionHeaders.map(header => {
+    module.functions = functionHeaders.map((header, i) => {
         let offset = header.infoOffset;
         if (header.overflowed) offset += largeFunctionHeader.byteSize;
 
@@ -127,7 +127,7 @@ export function parseHermesModule(buffer: ArrayBuffer): HermesModule {
             }
         }
 
-        const func = new HermesFunction(header, bytecode, jumpTables);
+        const func = new HermesFunction(i, header, bytecode, jumpTables);
 
         if (header.hasExceptionHandler) {
             const count = view.getUint32(offset, true);

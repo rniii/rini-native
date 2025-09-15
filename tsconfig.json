@@ -4,7 +4,7 @@
     "strict": true,
     "verbatimModuleSyntax": true,
     "jsx": "preserve",
-    "module": "ESNext",
+    "module": "nodenext",
     "moduleResolution": "nodenext",
     "noEmit": true,
     "target": "ESNext"

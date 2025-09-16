@@ -50,9 +50,9 @@ class Patcher {
             const patch = new Patch(def);
 
             for (const str of def.strings) {
-                const id = strings.find(v => v.contents.includes(str))?.id;
+                const id = this.searchString(str);
 
-                if (id == null) throw Error(`String ${JSON.stringify(str)} couldn't be found`);
+                if (id < 0) throw Error(`String ${JSON.stringify(str)} couldn't be found`);
 
                 patch.stringIds.push(id);
             }
@@ -85,7 +85,7 @@ class Patcher {
     }
 
     searchString(str: string) {
-        return this.sortedStrings.find(v => v.contents.includes(str))?.id ?? 0;
+        return this.sortedStrings.find(v => v.contents.includes(str))?.id ?? -1;
     }
 }
 
@@ -112,7 +112,7 @@ class MutableFunction {
 
         const matches = (instr: Instruction, query: (number | symbol)[]) => {
             return query[0] === instr.opcode
-                && instr.operands().every((arg, i) => typeof query[i] !== "number" || arg === query[i]);
+                && instr.operands().every((arg, i) => typeof query[i + 1] === "symbol" || arg === query[i + 1]);
         };
 
         let i = 0;
@@ -162,6 +162,8 @@ const patches: PatchDefinition[] = [
                 [Opcode.CreateClosureLongIndex, Any, Any, Any],
                 [Opcode.PutNewOwnByIdShort, Any, Any, "get"],
             );
+
+            console.log(createClosure);
         },
     },
 ];

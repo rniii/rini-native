@@ -6,14 +6,17 @@ import { formatSizeUnit, mapValues } from "../utils/index.ts";
 import { Rope } from "./rope.ts";
 
 type OperandsQuery<Op extends Opcode> = ParsedArguments<Op> extends infer ParsedArgs extends readonly any[] ? {
-        [Index in keyof ParsedArgs]: ParsedArgs[Index] | typeof Any;
+        [Index in keyof ParsedArgs]: ParsedArgs[Index] | null;
     }
     : never;
+type RawOperandsQuery = (number | null)[];
 type InstructionQuery<Op extends Opcode = Opcode> = Op extends unknown ? [Op, ...OperandsQuery<Op>] : never;
 
-const Any = Symbol();
+type ContiguousMatch<Q extends InstructionQuery[]> = {
+    [Index in keyof Q]: MatchedInstruction<Q[Index][0]>;
+}
 
-class MatchedInstruction<Op extends Opcode> {
+class MatchedInstruction<Op extends Opcode = Opcode> {
     ip: number;
     opcode: Op;
     operands: number[];
@@ -100,8 +103,8 @@ class MutableFunction {
         this.bytecode = this.bytecode.insert(index, new Rope(instr));
     }
 
-    match(...query: InstructionQuery[]) {
-        const normalisedQuery = query.map(q => (
+    match<const Q extends InstructionQuery[]>(...queries: Q): ContiguousMatch<Q> {
+        const normalisedQuery = queries.map(q => (
             q.map(value => {
                 if (typeof value === "string") return this.patcher.searchString(value);
                 if (typeof value === "bigint") throw "todo";
@@ -110,24 +113,24 @@ class MutableFunction {
             })
         ));
 
-        const matches = (instr: Instruction, query: (number | symbol)[]) => {
+        const matches = (instr: Instruction, query: RawOperandsQuery) => {
             return query[0] === instr.opcode
-                && instr.operands().every((arg, i) => typeof query[i + 1] === "symbol" || arg === query[i + 1]);
+                && instr.operands().every((arg, i) => typeof query[i + 1] === null || arg === query[i + 1]);
         };
 
         let i = 0;
-        let match: MatchedInstruction<any>[] = [];
+        let match: MatchedInstruction[] = [];
 
         for (const instr of this.instructions()) {
             if (matches(instr, normalisedQuery[i])) {
-                match.push(new MatchedInstruction(instr, query[i]));
+                match.push(new MatchedInstruction(instr, queries[i]));
                 i++;
             } else {
                 match = [];
                 i = 0;
             }
 
-            if (i >= query.length) return match;
+            if (i >= queries.length) return match as ContiguousMatch<Q>;
         }
 
         throw Error("Match failed");
@@ -159,8 +162,8 @@ const patches: PatchDefinition[] = [
         strings: ["Object", "defineProperties", "isDeveloper"],
         patch(f) {
             const [createClosure] = f.match(
-                [Opcode.CreateClosureLongIndex, Any, Any, Any],
-                [Opcode.PutNewOwnByIdShort, Any, Any, "get"],
+                [Opcode.CreateClosureLongIndex, null, null, null],
+                [Opcode.PutNewOwnByIdShort, null, null, "get"],
             );
 
             console.log(createClosure);

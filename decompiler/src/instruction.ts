@@ -26,19 +26,19 @@ const opcodeWidths = mapValues(opcodeTypes, args => (
     args.reduce((acc, arg) => acc + argWidths[arg], 1)
 ));
 
-type ArgTypes<Op extends Opcode> = typeof opcodeTypes[Op];
-
 export type ParsedInstruction<Op extends Opcode = Opcode>
     = Op extends unknown
     ? [Op, ...ParsedArguments<Op>]
     : never;
 
-export type ParsedArguments<
-    Op extends Opcode = Opcode,
-    Args extends ArgTypes<Op> = ArgTypes<Op>,
-> = Op extends unknown ? {
-    [I in keyof Args]: TypedOperand<Op, I & string> extends infer T ? ([T] extends [never] ? TypedArg<Args[I] & ArgType> : T) : never;
-} : never;
+export type ParsedArguments<Op extends Opcode = Opcode>
+    = Op extends unknown
+    ? typeof opcodeTypes[Op] extends infer Args extends readonly ArgType[]
+        ? {
+            [I in keyof Args]: TypedOperand<Op, I & string> extends infer T ? ([T] extends [never] ? TypedArg<Args[I]> : T) : never;
+        }
+        : never
+    : never;
 
 type OperandMapLookup<
     Map extends OperandMap,

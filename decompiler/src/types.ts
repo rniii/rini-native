@@ -1,5 +1,6 @@
 import type { FunctionHeader } from "./bitfields.ts";
 import { Instruction } from "./instruction.ts";
+import type { Segment } from "./moduleParser.ts";
 
 export { Instruction, isValidOpcode, type ParsedArguments, type ParsedInstruction } from "./instruction.ts";
 
@@ -13,29 +14,28 @@ export class HermesModule {
     debugInfo?: Uint8Array;
     sourceHash?: Uint8Array;
 
-    // File segments which are currently not handled
-    segments: Record<string, Uint8Array> = {};
+    // File segments which are currently not handled.
+    // TODO: remove this
+    segments: { [K in keyof Segment]?: Uint8Array } = {};
 
     strings: HermesString[] = [];
     bigInts: bigint[] = [];
     regExps: Uint8Array[] = [];
 
     functions: HermesFunction[] = [];
-
-    bytecode?: Uint8Array;
-    bytecodeOffsets: number[] = [];
 }
 
 export type PartialFunctionHeader =
     & Pick<
         FunctionHeader,
-        | "offset"
         | "paramCount"
         | "functionName"
-        // | "frameSize"
-        // | "environmentSize"
-        // | "highestReadCacheIndex"
-        // | "highestWriteCacheIndex"
+        | "frameSize"
+        | "environmentSize"
+        | "highestReadCacheIndex"
+        | "highestWriteCacheIndex"
+        | "prohibitInvoke"
+        | "strictMode"
     >
     & Partial<FunctionHeader>;
 
@@ -45,6 +45,7 @@ export class HermesFunction {
 
     constructor(
         public id: number,
+        public bytecodeId: number,
         public header: PartialFunctionHeader,
         public bytecode: Uint8Array,
         public jumpTables?: Uint8Array,

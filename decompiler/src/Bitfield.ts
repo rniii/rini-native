@@ -3,7 +3,7 @@ import { entries, padSize } from "../../utils/index.ts";
 export class Bitfield<K extends string> {
     bitSize: number;
     byteSize: number;
-    private segments: [K, { byte: number; mask: number; shift: number }][];
+    segments: [K, { byte: number; mask: number; shift: number }][];
 
     constructor(public fields: Record<K, number>) {
         this.bitSize = entries(fields).reduce((a, [, b]) => a + b, 0);
@@ -23,7 +23,7 @@ export class Bitfield<K extends string> {
         });
     }
 
-    parse(view: DataView, offset: number = 0) {
+    parse(view: DataView, offset: number) {
         const value = {} as { [P in K]: number };
 
         for (const [field, segment] of this.segments) {
@@ -51,6 +51,38 @@ export class Bitfield<K extends string> {
         }
 
         return result;
+    }
+
+    write(view: DataView, offset: number, value: Record<K, number>) {
+        for (const [field, segment] of this.segments) {
+            view.setInt32(
+                offset + segment.byte,
+                view.getInt32(offset + segment.byte, true) | (value[field] & segment.mask) << segment.shift,
+                true,
+            );
+        }
+    }
+
+    writeItems(view: DataView, offset: number, items: Iterable<Record<K, number>>) {
+        for (const value of items) {
+            for (const [field, segment] of this.segments) {
+                view.setInt32(
+                    offset + segment.byte,
+                    view.getInt32(offset + segment.byte, true) | (value[field] & segment.mask) << segment.shift,
+                    true,
+                );
+            }
+
+            offset += this.byteSize;
+        }
+    }
+
+    overflows(value: Record<K, number>) {
+        for (const [field, { mask }] of this.segments) {
+            if (value[field] >= mask) return true;
+        }
+
+        return false;
     }
 }
 

@@ -25,6 +25,7 @@ export function instrument<F extends (...args: any[]) => any>(name: string, func
 
         accTime += dt;
         maxTime = Math.max(dt, maxTime);
+        calls++;
 
         return res as ReturnType<F>;
     };

@@ -1,5 +1,5 @@
-import { HermesFunction, HermesModule, type Bytecode } from "decompiler/types";
 import { ArgType, Builtin, Opcode, opcodeTypes } from "decompiler/opcodes";
+import { type Bytecode, HermesFunction, HermesModule, Instruction } from "decompiler/types";
 import { Color as C, drawGutter } from "./formatting.ts";
 
 // this is (still) bad
@@ -7,7 +7,7 @@ export function disassemble(module: HermesModule, func: HermesFunction, code = f
     const header = func.header;
 
     const name = module.strings[header.functionName].contents || "(anonymous)";
-    const addr = `${C.Green}@0x${formatHex(header.offset)}`;
+    const addr = `${C.Green}@${formatAddr(header.offset)}`;
 
     let src = `#${func.id} ${C.Cyan}${name}${addr}${C.Reset}():\n`;
 
@@ -29,65 +29,61 @@ export function disassemble(module: HermesModule, func: HermesFunction, code = f
     const gutter = drawGutter(instrCount, pointers, { colors: true, curved: true });
 
     code.instructions().forEach((instr, i) => {
-        const name = Opcode[instr.opcode];
-        const types = opcodeTypes[instr.opcode];
+        const { name, args, notes } = disassembleInstruction(module, func, instr);
 
-        let note = "";
-        let line = `${C.Purple}${name}${C.Reset}`;
+        let line = `${C.Purple}${name}${C.Reset} ${args.join(", ")}`;
 
-        instr.operands().forEach((value, arg) => {
-            const type = types[arg];
-            if (arg > 0) line += `,`;
-
-            switch (type) {
-                case ArgType.Reg8:
-                case ArgType.Reg32:
-                    line += ` r${value}`;
-                    break;
-                case ArgType.Addr8:
-                case ArgType.Addr32:
-                    const addr = instr.ip + value;
-                    line += ` 0x${addr.toString(16).padStart(8, "0")}`;
-                    note += ` rel=${value >= 0 ? "+" + value : value}`;
-                    break;
-                default:
-                    if (instr.stringOperands()?.includes(arg)) {
-                        line += ` ${JSON.stringify(module.strings[value].contents)}`;
-                        note += ` str=#${value}`;
-                        break;
-                    }
-                    if (instr.functionOperands()?.includes(arg)) {
-                        const { header } = module.functions[value];
-
-                        line += ` ${module.strings[header.functionName].contents || "(anonymous)"}`;
-                        note += ` func=#${value} [0x${formatHex(header.offset)}]`;
-                        break;
-                    }
-                    if (instr.bigintOperands()?.includes(arg)) {
-                        line += ` ${module.bigInts[value]}n`;
-                        break;
-                    }
-                    if (
-                        (instr.opcode === Opcode.CallBuiltin || instr.opcode === Opcode.CallBuiltinLong)
-                        && arg === 1
-                    ) {
-                        line += ` ${Builtin[value]}`;
-                        note += ` builtin=#${value}`;
-                        break;
-                    }
-                    line += ` ${value}`;
-                    break;
-            }
-        });
-
-        if (instr.opcode === Opcode.CreateEnvironment) note += ` envSize=${header.environmentSize}`;
-
-        if (note) line = line.padEnd(50) + `  ${C.Cyan};${note}`;
+        if (notes.length) line = line.padEnd(50) + `  ${C.Cyan}; ${notes.join(" ")}`;
 
         src += `${formatHex(instr.ip)} ${gutter[i]} ${line}${C.Reset}\n`;
     });
 
     return src;
+}
+
+function disassembleInstruction(module: HermesModule, func: HermesFunction, instr: Instruction) {
+    const types = opcodeTypes[instr.opcode];
+
+    const name = Opcode[instr.opcode];
+    const notes: string[] = [];
+
+    const args = Array.from(instr.operands(), (value, arg) => {
+        const type = types[arg];
+
+        if (type === ArgType.Reg8 || type === ArgType.Reg32) {
+            return `r${value}`;
+        }
+        if (type === ArgType.Addr8 || type === ArgType.Addr32) {
+            notes.push(`rel=${value >= 0 ? "+" : ""}${value}`);
+            return formatAddr(instr.ip + value);
+        }
+        if (instr.stringOperands()?.includes(arg)) {
+            notes.push(`str=${value}`);
+            return JSON.stringify(module.strings[value].contents);
+        }
+        if (instr.functionOperands()?.includes(arg)) {
+            const { header } = module.functions[value];
+
+            notes.push(`func=#${value} [${header.offset ? formatAddr(header.offset) : "new"}]`);
+            return module.strings[header.functionName].contents || "(anonymous)";
+        }
+        if (instr.bigintOperands()?.includes(arg)) {
+            return `${module.bigInts[value]}n`;
+        }
+        if ([Opcode.CallBuiltin, Opcode.CallBuiltinLong].includes(instr.opcode) && arg === 1) {
+            notes.push(`builtin=#${value}`);
+            return Builtin[value];
+        }
+        return value.toString();
+    });
+
+    if (instr.opcode === Opcode.CreateEnvironment) notes.push(`envSize=${func.header.environmentSize}`);
+
+    return { name, args, notes };
+}
+
+function formatAddr(addr: number) {
+    return "0x" + formatHex(addr);
 }
 
 function formatHex(value: number, bytes = 4) {

@@ -33,14 +33,11 @@ class MatchedInstruction<Op extends Opcode> {
     constructor(instr: Instruction) {
         this.ip = instr.ip;
         this.opcode = instr.opcode as Op;
-        this.args = new Proxy(Array(opcodeTypes[instr.opcode].length), {
-            get(target, p: string) {
-                if (p === "length") return target[p];
-                instr.getOperand(+p);
-            },
-            set(target, p: string, value) {
-                if (p === "length") return target[p] = value, true;
-                return instr.setOperand(+p, value), true;
+        this.args = new Proxy([...instr.operands()], {
+            set(target, p, value, r) {
+                if (typeof p === "string" && +p) instr.setOperand(+p, value);
+
+                return Reflect.set(target, p, value, r);
             },
         }) as any;
     }
@@ -115,18 +112,23 @@ class Patcher {
         console.log(`${patches.filter(p => p.applied).length} / ${patches.length} patches applied`);
     }
 
-    createFunction(options: {
+    createFunction(bytecode: Uint8Array, options: {
         paramCount: number;
-        bytecode: Uint8Array;
     }) {
         const id = this.module.functions.length;
         const header: PartialFunctionHeader = {
-            offset: 0,
             paramCount: options.paramCount,
             functionName: this.sortedStrings[0].id,
+            // XXX: These could be calculated, but writing complex functions by hand is discouraged
+            frameSize: 0,
+            environmentSize: 0,
+            highestReadCacheIndex: 0,
+            highestWriteCacheIndex: 0,
+            prohibitInvoke: 0,
+            strictMode: 1,
         };
 
-        this.module.functions.push(new HermesFunction(id, header, options.bytecode));
+        this.module.functions.push(new HermesFunction(id, 0, header, bytecode));
 
         return id;
     }
@@ -202,7 +204,7 @@ const module = parseHermesModule(buffer);
 console.timeEnd("parse");
 
 console.time("patch");
-const patcher = new Patcher(module, [
+const patchDefs: PatchDefinition[] = [
     {
         strings: ["Object", "defineProperties", "isDeveloper"],
         patch(f) {
@@ -211,24 +213,29 @@ const patcher = new Patcher(module, [
                 [Opcode.PutNewOwnByIdShort, null, null, "get"],
             );
 
-            createClosure.args[2] = gadgets.returnConstTrue;
+            createClosure.args[2] = snippets.returnTrue;
         },
     },
-]);
+];
 
-const gadgets = mapValues(
+const patcher = new Patcher(module, patchDefs);
+
+interface Snippets {
+    /** `() => {}` */
+    noop: number;
+    /** `() => true` */
+    returnTrue: number;
+    /** `() => false` */
+    returnFalse: number;
+}
+
+const snippets: Snippets = mapValues(
     {
-        returnConstTrue: [[Opcode.LoadConstTrue, 0], [Opcode.Ret, 0]],
-        returnConstFalse: [[Opcode.LoadConstFalse, 0], [Opcode.Ret, 0]],
-        returnConstZero: [[Opcode.LoadConstZero, 0], [Opcode.Ret, 0]],
-        returnConstUndefined: [[Opcode.LoadConstUndefined, 0], [Opcode.Ret, 0]],
-        returnConstNull: [[Opcode.LoadConstNull, 0], [Opcode.Ret, 0]],
+        noop: [[Opcode.LoadConstUndefined, 0], [Opcode.Ret, 0]],
+        returnTrue: [[Opcode.LoadConstTrue, 0], [Opcode.Ret, 0]],
+        returnFalse: [[Opcode.LoadConstFalse, 0], [Opcode.Ret, 0]],
     } satisfies Record<string, RawInstruction[]>,
-    code =>
-        patcher.createFunction({
-            paramCount: 0,
-            bytecode: encodeInstructions(code),
-        }),
+    code => patcher.createFunction(encodeInstructions(code), { paramCount: 0 }),
 );
 
 patcher.applyPatches();

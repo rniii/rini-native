@@ -12,10 +12,10 @@ import {
 import { HermesFunction, HermesIdentifier, HermesModule, HermesString } from "./types.ts";
 
 // https://github.com/facebook/hermes/blob/v0.13.0/include/hermes/BCGen/HBC/BytecodeVersion.h#L23
-const HERMES_VERSION = 96;
+export const HERMES_VERSION = 96;
 
 // https://github.com/facebook/hermes/blob/v0.13.0/include/hermes/BCGen/HBC/BytecodeFileFormat.h#L27
-const HERMES_SIGNATURE = 0x1F1903C103BC1FC6n;
+export const HERMES_SIGNATURE = 0x1F1903C103BC1FC6n;
 
 // From now on also reference:
 // https://github.com/facebook/hermes/blob/v0.13.0/lib/BCGen/HBC/BytecodeStream.cpp
@@ -29,20 +29,15 @@ export function parseHermesModule(buffer: ArrayBuffer): HermesModule {
 
     const view = new DataView(buffer);
     const header = parseHeader(buffer);
-    const segments = segmentModule(header, buffer);
+    const segments = mapValues(segmentModule(header), p => new Uint8Array(buffer, ...p));
+
+    // console.log(header.debugInfoOffset);
 
     module.sourceHash = header.hash;
     module.globalCodeIndex = header.globalCodeIndex;
     module.segmentID = header.segmentID;
     module.options = header.options;
-    module.segments = {
-        identifierHashes: segments.identifierHashes,
-        arrayBuffer: segments.arrayBuffer,
-        objectKeyBuffer: segments.objectKeyBuffer,
-        objectValueBuffer: segments.objectValueBuffer,
-        cjsModules: segments.cjsModuleTable,
-        functionSources: segments.functionSourceTable,
-    };
+    module.segments = segments;
 
     const functionHeaders = smallFunctionHeader.parseArray(segments.functionHeaders);
 
@@ -106,28 +101,35 @@ export function parseHermesModule(buffer: ArrayBuffer): HermesModule {
     // first infoOffset always follows last function's bytecode
     if (lastOffset) bytecodeLengths.set(lastOffset, functionHeaders[0].infoOffset - lastOffset);
 
+    const bytecodes = new Map<number, [Uint8Array, Uint8Array | undefined]>();
+
     module.functions = functionHeaders.map((header, i) => {
-        let offset = header.infoOffset;
-        if (header.overflowed) offset += largeFunctionHeader.byteSize;
+        if (bytecodes.has(header.offset)) {
+            var [bytecode, jumpTables] = bytecodes.get(header.offset)!;
+        } else {
+            var bytecode = new Uint8Array(buffer, header.offset, header.bytecodeSizeInBytes);
 
-        const bytecode = new Uint8Array(buffer, header.offset, header.bytecodeSizeInBytes);
+            const extraBytes = bytecodeLengths.get(header.offset)! - header.bytecodeSizeInBytes;
 
-        const extraBytes = bytecodeLengths.get(header.offset)! - header.bytecodeSizeInBytes;
+            if (extraBytes > 0) {
+                const tableStart = header.offset + header.bytecodeSizeInBytes;
+                // jump table starts at next 4-byte aligned address
+                const alignBytes = tableStart % 4 === 0 ? 0 : 4 - (tableStart % 4);
 
-        let jumpTables;
-        if (extraBytes > 0) {
-            const tableStart = header.offset + header.bytecodeSizeInBytes;
-            // jump table starts at next 4-byte aligned address
-            const alignBytes = tableStart % 4 === 0 ? 0 : 4 - (tableStart % 4);
-
-            if (extraBytes > alignBytes) {
-                jumpTables = new Uint8Array(buffer, tableStart + alignBytes, extraBytes - alignBytes);
-            } else {
-                // probably the last function
+                if (extraBytes > alignBytes) {
+                    jumpTables = new Uint8Array(buffer, tableStart + alignBytes, extraBytes - alignBytes);
+                } else {
+                    // probably the last function
+                }
             }
+
+            bytecodes.set(header.offset, [bytecode, jumpTables]);
         }
 
-        const func = new HermesFunction(i, header, bytecode, jumpTables);
+        const func = new HermesFunction(i, header.offset, header, bytecode, jumpTables);
+
+        let offset = header.infoOffset;
+        if (header.overflowed) offset += largeFunctionHeader.byteSize;
 
         if (header.hasExceptionHandler) {
             const count = view.getUint32(offset, true);
@@ -155,19 +157,14 @@ export function parseHermesModule(buffer: ArrayBuffer): HermesModule {
         return func;
     });
 
-    // bytecode ends at the first function info, offsets are always increasing in order
-    module.bytecode = new Uint8Array(
-        buffer,
-        module.functions[0].header.offset,
-        module.functions[0].header.infoOffset - module.functions[0].header.offset,
-    );
-
     // debug info is followed by a 20 byte SHA-1 hash, which we don't check
     module.debugInfo = new Uint8Array(
         buffer,
         header.debugInfoOffset,
         buffer.byteLength - header.debugInfoOffset - 20,
     );
+
+    console.log(new Uint8Array(buffer, buffer.byteLength - 20, 20));
 
     return module;
 }
@@ -180,7 +177,9 @@ function getLargeOffset(smallHeader: FunctionHeader) {
     return ((smallHeader.infoOffset << 16) | smallHeader.offset) >>> 0;
 }
 
-function segmentModule(header: Header, buffer: ArrayBuffer) {
+export type Segment = ReturnType<typeof segmentModule>;
+
+export function segmentModule(header: Header) {
     let i = 128;
 
     return mapValues({
@@ -199,14 +198,15 @@ function segmentModule(header: Header, buffer: ArrayBuffer) {
         regExpStorage: header.regExpStorageSize * 1,
         cjsModuleTable: header.cjsModuleCount * offsetLengthPair.byteSize,
         functionSourceTable: header.functionSourceCount * functionSourceEntry.byteSize,
+        bytecodeStart: 0,
     }, (size) => {
         const offset = i;
         i += padSize(size);
-        return new Uint8Array(buffer, offset, size);
+        return [offset, size];
     });
 }
 
-type Header = ReturnType<typeof parseHeader>;
+export type Header = ReturnType<typeof parseHeader>;
 
 export function parseHeader(buffer: ArrayBuffer) {
     const view = new DataView(buffer);

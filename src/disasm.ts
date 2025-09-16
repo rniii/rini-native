@@ -1,9 +1,9 @@
-import { HermesFunction, HermesModule } from "decompiler/types";
+import { HermesFunction, HermesModule, type Bytecode } from "decompiler/types";
 import { ArgType, Builtin, Opcode, opcodeTypes } from "decompiler/opcodes";
 import { Color as C, drawGutter } from "./formatting.ts";
 
 // this is (still) bad
-export function disassemble(module: HermesModule, func: HermesFunction) {
+export function disassemble(module: HermesModule, func: HermesFunction, code = func as Bytecode) {
     const header = func.header;
 
     const name = module.strings[header.functionName].contents || "(anonymous)";
@@ -14,7 +14,7 @@ export function disassemble(module: HermesModule, func: HermesFunction) {
     const addr2line: number[] = [];
     const jumps = new Map<number, number>();
 
-    func.instructions().forEach((instr, i) => {
+    code.instructions().forEach((instr, i) => {
         addr2line[instr.ip] = i;
 
         const types = opcodeTypes[instr.opcode];
@@ -28,7 +28,7 @@ export function disassemble(module: HermesModule, func: HermesFunction) {
     const pointers = Array.from(jumps, ([from, to]) => ({ from: addr2line[from], to: addr2line[to] }));
     const gutter = drawGutter(instrCount, pointers, { colors: true, curved: true });
 
-    func.instructions().forEach((instr, i) => {
+    code.instructions().forEach((instr, i) => {
         const name = Opcode[instr.opcode];
         const types = opcodeTypes[instr.opcode];
 

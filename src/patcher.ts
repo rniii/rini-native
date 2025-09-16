@@ -1,8 +1,17 @@
-import { parseHermesModule } from "decompiler";
-import { Opcode } from "decompiler/opcodes";
-import { HermesFunction, HermesModule, HermesString, Instruction, type ParsedArguments } from "decompiler/types";
+import { encodeInstructions, parseHermesModule } from "decompiler";
+import { Opcode, opcodeTypes } from "decompiler/opcodes";
+import {
+    HermesFunction,
+    HermesModule,
+    HermesString,
+    Instruction,
+    type ParsedArguments,
+    type PartialFunctionHeader,
+} from "decompiler/types";
+import type { RawInstruction } from "../decompiler/src/instruction.ts";
 import { readArrayBuffer } from "../test/common.ts";
 import { formatSizeUnit, mapValues } from "../utils/index.ts";
+import { disassemble } from "./disasm.ts";
 import { Rope } from "./rope.ts";
 
 type OperandsQuery<Op extends Opcode> = ParsedArguments<Op> extends infer ParsedArgs extends readonly any[] ? {
@@ -16,16 +25,31 @@ type ContiguousMatch<Q extends InstructionQuery[]> = {
     [Index in keyof Q]: MatchedInstruction<Q[Index][0]>;
 };
 
-class MatchedInstruction<Op extends Opcode = Opcode> {
+class MatchedInstruction<Op extends Opcode> {
     ip: number;
     opcode: Op;
-    operands: number[];
+    args: { -readonly [P in keyof ParsedArguments<Op>]: number };
 
-    constructor(instr: Instruction, query: InstructionQuery<Op>) {
+    constructor(instr: Instruction) {
         this.ip = instr.ip;
         this.opcode = instr.opcode as Op;
-        this.operands = [...instr.operands()];
+        this.args = new Proxy(Array(opcodeTypes[instr.opcode].length), {
+            get(target, p: string) {
+                if (p === "length") return target[p];
+                instr.getOperand(+p);
+            },
+            set(target, p: string, value) {
+                if (p === "length") return target[p] = value, true;
+                return instr.setOperand(+p, value), true;
+            },
+        }) as any;
     }
+}
+
+interface PatchDefinition {
+    strings: string[];
+    opcodes?: Opcode[];
+    patch(f: MutableBytecode, m: Patcher): void;
 }
 
 class Patcher {
@@ -77,8 +101,12 @@ class Patcher {
 
             for (const patch of patches) {
                 if (patch.stringIds.every(id => functionStrings.has(id))) {
-                    patch.definition.patch(new MutableFunction(this, func), module);
+                    const code = new MutableBytecode(this, func);
+
+                    patch.definition.patch(code, this);
                     patch.applied = true;
+
+                    console.log(disassemble(module, func, code));
                 }
             }
         });
@@ -87,16 +115,32 @@ class Patcher {
         console.log(`${patches.filter(p => p.applied).length} / ${patches.length} patches applied`);
     }
 
+    createFunction(options: {
+        paramCount: number;
+        bytecode: Uint8Array;
+    }) {
+        const id = this.module.functions.length;
+        const header: PartialFunctionHeader = {
+            offset: 0,
+            paramCount: options.paramCount,
+            functionName: this.sortedStrings[0].id,
+        };
+
+        this.module.functions.push(new HermesFunction(id, header, options.bytecode));
+
+        return id;
+    }
+
     searchString(str: string) {
         return this.sortedStrings.find(v => v.contents.includes(str))?.id ?? -1;
     }
 }
 
-class MutableFunction {
+class MutableBytecode {
     bytecode: Rope<Uint8Array>;
 
-    constructor(public patcher: Patcher, public inner: HermesFunction) {
-        this.bytecode = new Rope(inner.bytecode.slice());
+    constructor(public patcher: Patcher, func: HermesFunction) {
+        this.bytecode = new Rope(func.bytecode.slice());
     }
 
     addInstruction(index: number, instr: Uint8Array) {
@@ -115,15 +159,15 @@ class MutableFunction {
 
         const matches = (instr: Instruction, query: RawOperandsQuery) => {
             return query[0] === instr.opcode
-                && instr.operands().every((arg, i) => typeof query[i + 1] === null || arg === query[i + 1]);
+                && instr.operands().every((arg, i) => query[i + 1] === null || arg === query[i + 1]);
         };
 
         let i = 0;
-        let match: MatchedInstruction[] = [];
+        let match: MatchedInstruction<any>[] = [];
 
         for (const instr of this.instructions()) {
             if (matches(instr, normalisedQuery[i])) {
-                match.push(new MatchedInstruction(instr, queries[i]));
+                match.push(new MatchedInstruction(instr));
                 i++;
             } else {
                 match = [];
@@ -151,13 +195,14 @@ class MutableFunction {
     }
 }
 
-interface PatchDefinition {
-    strings: string[];
-    opcodes?: Opcode[];
-    patch(f: MutableFunction, m: HermesModule): void;
-}
+const buffer = await readArrayBuffer("discord/bundle.hbc");
 
-const patches: PatchDefinition[] = [
+console.time("parse");
+const module = parseHermesModule(buffer);
+console.timeEnd("parse");
+
+console.time("patch");
+const patcher = new Patcher(module, [
     {
         strings: ["Object", "defineProperties", "isDeveloper"],
         patch(f) {
@@ -166,19 +211,26 @@ const patches: PatchDefinition[] = [
                 [Opcode.PutNewOwnByIdShort, null, null, "get"],
             );
 
-            console.log(createClosure);
+            createClosure.args[2] = gadgets.returnConstTrue;
         },
     },
-];
+]);
 
-const buffer = await readArrayBuffer("discord/bundle.hbc");
+const gadgets = mapValues(
+    {
+        returnConstTrue: [[Opcode.LoadConstTrue, 0], [Opcode.Ret, 0]],
+        returnConstFalse: [[Opcode.LoadConstFalse, 0], [Opcode.Ret, 0]],
+        returnConstZero: [[Opcode.LoadConstZero, 0], [Opcode.Ret, 0]],
+        returnConstUndefined: [[Opcode.LoadConstUndefined, 0], [Opcode.Ret, 0]],
+        returnConstNull: [[Opcode.LoadConstNull, 0], [Opcode.Ret, 0]],
+    } satisfies Record<string, RawInstruction[]>,
+    code =>
+        patcher.createFunction({
+            paramCount: 0,
+            bytecode: encodeInstructions(code),
+        }),
+);
 
-console.time("parse");
-const module = parseHermesModule(buffer);
-console.timeEnd("parse");
-
-console.time("patch");
-const patcher = new Patcher(module, patches);
 patcher.applyPatches();
 console.timeEnd("patch");
 

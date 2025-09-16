@@ -26,13 +26,26 @@ export class HermesModule {
     bytecodeOffsets: number[] = [];
 }
 
+export type PartialFunctionHeader =
+    & Pick<
+        FunctionHeader,
+        | "offset"
+        | "paramCount"
+        | "functionName"
+        // | "frameSize"
+        // | "environmentSize"
+        // | "highestReadCacheIndex"
+        // | "highestWriteCacheIndex"
+    >
+    & Partial<FunctionHeader>;
+
 export class HermesFunction {
     debugOffsets?: DebugOffsets;
     exceptionHandlers: ExceptionHandler[] = [];
 
     constructor(
         public id: number,
-        public header: FunctionHeader,
+        public header: PartialFunctionHeader,
         public bytecode: Uint8Array,
         public jumpTables?: Uint8Array,
     ) {}
@@ -67,3 +80,7 @@ export class HermesString {
 }
 
 export class HermesIdentifier extends HermesString {}
+
+export interface Bytecode {
+    instructions(): Generator<Instruction>;
+}

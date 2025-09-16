@@ -1,5 +1,16 @@
 import { mapValues } from "../../utils/index.ts";
-import { ArgType, type BigIntOperandMap, bigintOperands, type FunctionOperandMap, functionOperands, type Opcode, opcodeTypes, type OperandMap, type StringOperandMap, stringOperands } from "./opcodes.ts";
+import {
+    ArgType,
+    type BigIntOperandMap,
+    bigintOperands,
+    type FunctionOperandMap,
+    functionOperands,
+    type Opcode,
+    opcodeTypes,
+    type OperandMap,
+    type StringOperandMap,
+    stringOperands,
+} from "./opcodes.ts";
 
 const argWidths: Record<ArgType, number> = {
     [ArgType.UInt8]: 1,
@@ -26,18 +37,23 @@ const opcodeWidths = mapValues(opcodeTypes, args => (
     args.reduce((acc, arg) => acc + argWidths[arg], 1)
 ));
 
-export type ParsedInstruction<Op extends Opcode = Opcode>
-    = Op extends unknown
-    ? [Op, ...ParsedArguments<Op>]
+export type ParsedInstruction<Op extends Opcode = Opcode> = Op extends unknown ? [Op, ...ParsedArguments<Op>]
     : never;
 
-export type ParsedArguments<Op extends Opcode = Opcode>
-    = Op extends unknown
-    ? typeof opcodeTypes[Op] extends infer Args extends readonly ArgType[]
-        ? {
-            [I in keyof Args]: TypedOperand<Op, I & string> extends infer T ? ([T] extends [never] ? TypedArg<Args[I]> : T) : never;
+export type ParsedArguments<Op extends Opcode = Opcode> = Op extends unknown
+    ? typeof opcodeTypes[Op] extends infer Args extends readonly ArgType[] ? {
+            [I in keyof Args]: TypedOperand<Op, I & string> extends infer T ? ([T] extends [never] ? number : T)
+                : never;
         }
-        : never
+    : never
+    : never;
+
+export type RawInstruction<Op extends Opcode = Opcode> = Op extends unknown ? [Op, ...RawArguments<Op>]
+    : never;
+
+export type RawArguments<Op extends Opcode = Opcode> = Op extends unknown
+    ? typeof opcodeTypes[Op] extends infer Args ? { [I in keyof Args]: number }
+    : never
     : never;
 
 type OperandMapLookup<
@@ -45,9 +61,10 @@ type OperandMapLookup<
     Op extends Opcode,
     Index extends string,
     T,
-> = Map extends { [K in Op]: readonly (infer Indices extends number)[] } ? (Index extends `${Indices}` ? T : never) : never;
+> = Map extends { [K in Op]: readonly (infer Indices extends number)[] } ? Index extends `${Indices}` ? T
+    : never
+    : never;
 
-type TypedArg<Arg extends ArgType> = number;
 type TypedOperand<
     Op extends Opcode,
     Index extends string,
@@ -76,6 +93,13 @@ export class Instruction {
         return this._getValue(type, offset);
     }
 
+    setOperand(idx: number, value: number) {
+        const type = opcodeTypes[this.opcode][idx];
+        const offset = operandIndexes[this.opcode][idx];
+
+        this._setValue(type, offset, value);
+    }
+
     *operands() {
         const types = opcodeTypes[this.opcode];
 
@@ -84,6 +108,18 @@ export class Instruction {
             yield this._getValue(type, offset);
             offset += argWidths[type];
         }
+    }
+
+    functionOperands() {
+        return functionOperands[this.opcode];
+    }
+
+    bigintOperands() {
+        return bigintOperands[this.opcode];
+    }
+
+    stringOperands() {
+        return stringOperands[this.opcode];
     }
 
     _getValue(type: ArgType, offset: number) {
@@ -106,15 +142,39 @@ export class Instruction {
         }
     }
 
-    functionOperands() {
-        return functionOperands[this.opcode];
+    _setValue(type: ArgType, offset: number, value: number) {
+        switch (type) {
+            case ArgType.UInt8:
+            case ArgType.Reg8:
+                return this.view.setUint8(this.ip + offset, value);
+            case ArgType.Addr8:
+                return this.view.setInt8(this.ip + offset, value);
+            case ArgType.UInt16:
+                return this.view.setUint16(this.ip + offset, value, true);
+            case ArgType.UInt32:
+            case ArgType.Reg32:
+                return this.view.setUint32(this.ip + offset, value, true);
+            case ArgType.Imm32:
+            case ArgType.Addr32:
+                return this.view.setInt32(this.ip + offset, value, true);
+            case ArgType.Double:
+                return this.view.setFloat64(this.ip + offset, value, true);
+        }
+    }
+}
+
+export function encodeInstructions(instructions: RawInstruction[]) {
+    const size = instructions.reduce((acc, [op]) => acc + opcodeWidths[op], 0);
+
+    const bytecode = new Uint8Array(size);
+    const view = new DataView(bytecode.buffer);
+
+    let ip = 0;
+    for (const value of instructions) {
+        bytecode[ip] = value[0];
+        const instr = new Instruction(ip, view);
+        value.slice(1).forEach((arg, i) => instr.setOperand(i, arg));
     }
 
-    bigintOperands() {
-        return bigintOperands[this.opcode];
-    }
-
-    stringOperands() {
-        return stringOperands[this.opcode];
-    }
+    return bytecode;
 }

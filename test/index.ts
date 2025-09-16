@@ -24,9 +24,9 @@ let iters = 0;
 
 const shortestFuncs = new Map(
     module.functions
-        .sort((a, b) => a.header.bytecodeSizeInBytes - b.header.bytecodeSizeInBytes)
+        .sort((a, b) => a.bytecode.byteLength - b.bytecode.byteLength)
+        .filter(f => f.bytecode.byteLength < 6)
         .map(f => [f.header.offset, f] as const)
-        .slice(0, 1024),
 );
 
 shortestFuncs.forEach(f => console.log(disassemble(module, f)));

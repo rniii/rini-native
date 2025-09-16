@@ -43,7 +43,13 @@ export class Rope<S extends Sequence> {
     }
 
     slice(start = 0, end = this.length): Rope<S> {
-        if (this._value) return new Rope(this._value.slice(start, end) as S);
+        if (this._value) {
+            return new Rope(
+                ArrayBuffer.isView(this._value)
+                    ? this._value.subarray(start, end) as S
+                    : this._value.slice(start, end) as S,
+            );
+        }
 
         if (start < 0) start = Math.max(0, start + this.length);
         if (end < 0) end = Math.max(0, end + this.length);
@@ -63,8 +69,8 @@ export class Rope<S extends Sequence> {
 
     *leaves(): Generator<S> {
         if (this._concat) {
-            yield *this._concat[0].leaves();
-            yield *this._concat[1].leaves();
+            yield* this._concat[0].leaves();
+            yield* this._concat[1].leaves();
         } else {
             yield this._value!;
         }

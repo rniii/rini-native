@@ -1,57 +1,126 @@
-import { HermesFunction, HermesModule, Instruction, parseHermesModule } from "decompiler";
+import { HermesFunction, HermesModule, HermesString, Instruction, parseHermesModule } from "decompiler";
 import { Opcode } from "decompiler/opcodes";
+import type { ParsedArguments } from "../decompiler/src/instruction.ts";
 import { readArrayBuffer } from "../test/common.ts";
 import { formatSizeUnit, mapValues } from "../utils/index.ts";
-import { disassemble } from "./disasm.ts";
 import { Rope } from "./rope.ts";
-import type { ParsedArguments } from "../decompiler/src/instruction.ts"
 
 type OperandsQuery<Op extends Opcode> = ParsedArguments<Op> extends infer ParsedArgs extends readonly any[] ? {
-    [Index in keyof ParsedArgs]: ParsedArgs[Index] | null;
-} : never;
+        [Index in keyof ParsedArgs]: ParsedArgs[Index] | typeof Any;
+    }
+    : never;
 type InstructionQuery<Op extends Opcode = Opcode> = Op extends unknown ? [Op, ...OperandsQuery<Op>] : never;
 
-function matchInstruction<Op extends Opcode>(instr: Instruction, query: InstructionQuery<Op>) {
-    if (query[0] !== instr.opcode) return false;
-
-    let i = 0;
-    for (const arg of instr.operands()) {
-        const queryArg = query[++i];
-        if (queryArg === null) return true;
-
-        if (typeof queryArg === "number" && arg !== queryArg) {
-            return false;
-        }
-    }
-
-    return true;
-}
+const Any = Symbol();
 
 class MatchedInstruction<Op extends Opcode> {
-    constructor(instr: Instruction, query: InstructionQuery<Op>) {}
+    ip: number;
+    opcode: Op;
+    operands: number[];
+
+    constructor(instr: Instruction, query: InstructionQuery<Op>) {
+        this.ip = instr.ip;
+        this.opcode = instr.opcode as Op;
+        this.operands = [...instr.operands()];
+    }
+}
+
+class Patcher {
+    sortedStrings: HermesString[];
+
+    constructor(public module: HermesModule, public patchDefs: PatchDefinition[]) {
+        this.sortedStrings = module.strings.slice();
+        this.sortedStrings.sort((a, b) => a.contents.length - b.contents.length);
+    }
+
+    applyPatches() {
+        class Patch {
+            applied?: boolean;
+            stringIds: number[] = [];
+
+            constructor(public definition: PatchDefinition) {}
+        }
+
+        const patches: Patch[] = [];
+
+        const strings = module.strings.slice();
+        strings.sort((a, b) => a.contents.length - b.contents.length);
+
+        for (const def of this.patchDefs) {
+            const patch = new Patch(def);
+
+            for (const str of def.strings) {
+                const id = strings.find(v => v.contents.includes(str))?.id;
+
+                if (id == null) throw Error(`String ${JSON.stringify(str)} couldn't be found`);
+
+                patch.stringIds.push(id);
+            }
+
+            patches.push(patch);
+        }
+
+        let totalInstrs = 0;
+        module.functions.forEach(func => {
+            const functionStrings = new Set<number>();
+            const functionCallees = new Set<number>();
+
+            for (const instr of func.instructions()) {
+                instr.stringOperands()?.forEach(op => functionStrings.add(instr.getOperand(op)));
+                instr.functionOperands()?.forEach(op => functionCallees.add(instr.getOperand(op)));
+
+                totalInstrs++;
+            }
+
+            for (const patch of patches) {
+                if (patch.stringIds.every(id => functionStrings.has(id))) {
+                    patch.definition.patch(new MutableFunction(this, func), module);
+                    patch.applied = true;
+                }
+            }
+        });
+
+        console.log(`Scanned ${totalInstrs} instructions`);
+        console.log(`${patches.filter(p => p.applied).length} / ${patches.length} patches applied`);
+    }
+
+    searchString(str: string) {
+        return this.sortedStrings.find(v => v.contents.includes(str))?.id ?? 0;
+    }
 }
 
 class MutableFunction {
     bytecode: Rope<Uint8Array>;
 
-    constructor(public original: HermesFunction) {
-        this.bytecode = new Rope(original.bytecode.slice());
+    constructor(public patcher: Patcher, public inner: HermesFunction) {
+        this.bytecode = new Rope(inner.bytecode.slice());
     }
 
     addInstruction(index: number, instr: Uint8Array) {
         this.bytecode = this.bytecode.insert(index, new Rope(instr));
     }
 
-    match<Op extends Opcode>(...queries: InstructionQuery<Op>[]) {
-        // query = query.map(q => typeof q === "string" ? 0 : q) as any;
+    match(...query: InstructionQuery[]) {
+        const normalisedQuery = query.map(q => (
+            q.map(value => {
+                if (typeof value === "string") return this.patcher.searchString(value);
+                if (typeof value === "bigint") throw "todo";
 
-        let match: MatchedInstruction<Op>[] = [];
+                return value;
+            })
+        ));
+
+        const matches = (instr: Instruction, query: (number | symbol)[]) => {
+            return query[0] === instr.opcode
+                && instr.operands().every((arg, i) => typeof query[i] !== "number" || arg === query[i]);
+        };
 
         let i = 0;
+        let match: MatchedInstruction<any>[] = [];
+
         for (const instr of this.instructions()) {
-            const query = queries[i];
-            if (matchInstruction(instr, query)) {
-                match.push(new MatchedInstruction(instr, query));
+            if (matches(instr, normalisedQuery[i])) {
+                match.push(new MatchedInstruction(instr, query[i]));
                 i++;
             } else {
                 match = [];
@@ -88,11 +157,11 @@ interface PatchDefinition {
 const patches: PatchDefinition[] = [
     {
         strings: ["Object", "defineProperties", "isDeveloper"],
-        patch(f, m) {
-            const [get] = f.match([Opcode.PutNewOwnByIdShort, Any, Any, "get"]);
-
-            console.log(get);
-            console.log(disassemble(m, f.original));
+        patch(f) {
+            const [createClosure] = f.match(
+                [Opcode.CreateClosureLongIndex, Any, Any, Any],
+                [Opcode.PutNewOwnByIdShort, Any, Any, "get"],
+            );
         },
     },
 ];
@@ -104,58 +173,8 @@ const module = parseHermesModule(buffer);
 console.timeEnd("parse");
 
 console.time("patch");
-patchModule(module);
+const patcher = new Patcher(module, patches);
+patcher.applyPatches();
 console.timeEnd("patch");
 
 console.log(mapValues(process.memoryUsage(), formatSizeUnit));
-
-function patchModule(module: HermesModule) {
-    class Patch {
-        applied?: boolean;
-        stringIds: number[] = [];
-
-        constructor(public definition: PatchDefinition) {}
-    }
-
-    const Patches: Patch[] = [];
-
-    const strings = module.strings.slice();
-    strings.sort((a, b) => a.contents.length - b.contents.length);
-
-    for (const def of patches) {
-        const patch = new Patch(def);
-
-        for (const str of def.strings) {
-            const id = strings.find(v => v.contents.includes(str))?.id;
-
-            if (id == null) throw Error(`String ${JSON.stringify(str)} couldn't be found`);
-
-            patch.stringIds.push(id);
-        }
-
-        Patches.push(patch);
-    }
-
-    let totalInstrs = 0;
-    module.functions.forEach(func => {
-        const functionStrings = new Set<number>();
-        const functionCallees = new Set<number>();
-
-        for (const instr of func.instructions()) {
-            instr.stringOperands()?.forEach(op => functionStrings.add(instr.getOperand(op)));
-            instr.functionOperands()?.forEach(op => functionCallees.add(instr.getOperand(op)));
-
-            totalInstrs++;
-        }
-
-        for (const patch of Patches) {
-            if (patch.stringIds.every(id => functionStrings.has(id))) {
-                patch.definition.patch(new MutableFunction(func), module);
-                patch.applied = true;
-            }
-        }
-    });
-
-    console.log(`Scanned ${totalInstrs} instructions`);
-    console.log(`${Patches.filter(p => p.applied).length} / ${Patches.length} patches applied`);
-}

@@ -1,6 +1,6 @@
-import { HermesFunction, HermesModule, HermesString, Instruction, parseHermesModule } from "decompiler";
+import { parseHermesModule } from "decompiler";
 import { Opcode } from "decompiler/opcodes";
-import type { ParsedArguments } from "../decompiler/src/instruction.ts";
+import { HermesFunction, HermesModule, HermesString, Instruction, type ParsedArguments } from "decompiler/types";
 import { readArrayBuffer } from "../test/common.ts";
 import { formatSizeUnit, mapValues } from "../utils/index.ts";
 import { Rope } from "./rope.ts";
@@ -14,7 +14,7 @@ type InstructionQuery<Op extends Opcode = Opcode> = Op extends unknown ? [Op, ..
 
 type ContiguousMatch<Q extends InstructionQuery[]> = {
     [Index in keyof Q]: MatchedInstruction<Q[Index][0]>;
-}
+};
 
 class MatchedInstruction<Op extends Opcode = Opcode> {
     ip: number;

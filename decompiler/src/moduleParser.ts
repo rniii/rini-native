@@ -9,7 +9,7 @@ import {
     stringKind,
     stringTableEntry,
 } from "./bitfields.ts";
-import { HermesFunction, HermesIdentifier, HermesModule, HermesString } from "./index.ts";
+import { HermesFunction, HermesIdentifier, HermesModule, HermesString } from "./types.ts";
 
 // https://github.com/facebook/hermes/blob/v0.13.0/include/hermes/BCGen/HBC/BytecodeVersion.h#L23
 const HERMES_VERSION = 96;

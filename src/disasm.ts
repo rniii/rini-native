@@ -1,4 +1,4 @@
-import { HermesFunction, HermesModule } from "decompiler";
+import { HermesFunction, HermesModule } from "decompiler/types";
 import { ArgType, Builtin, Opcode, opcodeTypes } from "decompiler/opcodes";
 import { Color as C, drawGutter } from "./formatting.ts";
 

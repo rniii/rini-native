@@ -6,33 +6,29 @@ import { disassemble } from "./disasm.ts";
 import { Rope } from "./rope.ts";
 import type { ParsedArguments } from "../decompiler/src/instruction.ts"
 
-type OperandsQuery<Op extends Opcode> = ParsedArguments<Op> extends infer ParsedArgs extends any[] ? {
-    [Index in keyof ParsedArgs]: ParsedArgs[Index] | typeof Any;
+type OperandsQuery<Op extends Opcode> = ParsedArguments<Op> extends infer ParsedArgs extends readonly any[] ? {
+    [Index in keyof ParsedArgs]: ParsedArgs[Index] | null;
 } : never;
 type InstructionQuery<Op extends Opcode = Opcode> = Op extends unknown ? [Op, ...OperandsQuery<Op>] : never;
-
-type a = InstructionQuery<Opcode.GetById>;
-//   ^?
-
-const Any = Symbol();
 
 function matchInstruction<Op extends Opcode>(instr: Instruction, query: InstructionQuery<Op>) {
     if (query[0] !== instr.opcode) return false;
 
     let i = 0;
     for (const arg of instr.operands()) {
-        if (typeof query[i] === "number" && arg !== query[i]) {
+        const queryArg = query[++i];
+        if (queryArg === null) return true;
+
+        if (typeof queryArg === "number" && arg !== queryArg) {
             return false;
         }
-
-        i++;
     }
 
     return true;
 }
 
-class MatchedInstruction<Q extends InstructionQuery> {
-    constructor(instr: Instruction, query: Q) {}
+class MatchedInstruction<Op extends Opcode> {
+    constructor(instr: Instruction, query: InstructionQuery<Op>) {}
 }
 
 class MutableFunction {
@@ -46,14 +42,15 @@ class MutableFunction {
         this.bytecode = this.bytecode.insert(index, new Rope(instr));
     }
 
-    match(...query: InstructionQuery[]) {
-        query = query.map(q => typeof q === "string" ? 0 : q) as any;
+    match<Op extends Opcode>(...queries: InstructionQuery<Op>[]) {
+        // query = query.map(q => typeof q === "string" ? 0 : q) as any;
+
+        let match: MatchedInstruction<Op>[] = [];
 
         let i = 0;
-        let match: MatchedInstruction[] = [];
-
         for (const instr of this.instructions()) {
-            if (matchInstruction(instr, query[i])) {
+            const query = queries[i];
+            if (matchInstruction(instr, query)) {
                 match.push(new MatchedInstruction(instr, query));
                 i++;
             } else {

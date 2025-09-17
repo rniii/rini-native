@@ -1,7 +1,7 @@
+import { equal } from "assert";
 import { entries, padSize } from "../../utils/index.ts";
 import {
     type FunctionHeader,
-    functionSourceEntry,
     identifierHash,
     largeFunctionHeader,
     type OffsetLengthPair,
@@ -15,7 +15,7 @@ import {
 import { type Header, HERMES_SIGNATURE, HERMES_VERSION, segmentModule } from "./moduleParser.ts";
 import { HermesIdentifier, type HermesModule } from "./types.ts";
 
-export async function writeHermesModule(module: HermesModule) {
+export function writeHermesModule(module: HermesModule) {
     const stringKinds: StringKind[] = [];
 
     let curKind: StringKind | undefined;
@@ -90,16 +90,22 @@ export async function writeHermesModule(module: HermesModule) {
 
     let offset = segments.bytecodeStart[0];
 
-    const bcDedup = new Set<number>();
+    const bcMap = new Map<number, number>();
 
     for (const func of module.functions) {
-        func.header.offset = offset;
+        const bcOffset = bcMap.get(func.bytecodeId) ?? offset;
+
+        equal(bcOffset, func.header.offset); // XXX
+
+        func.header.offset = bcOffset;
         func.header.bytecodeSizeInBytes = func.bytecode.byteLength;
         func.header.hasExceptionHandler = +!!func.exceptionHandlers.length;
         func.header.hasDebugInfo = +!!func.debugOffsets;
         func.header.overflowed = +smallFunctionHeader.overflows(func.header as FunctionHeader);
 
-        if (func.bytecodeId > 0 && bcDedup.has(func.bytecodeId)) continue;
+        if (func.bytecodeId > 0 && bcMap.has(func.bytecodeId)) continue;
+
+        bcMap.set(func.bytecodeId, offset);
 
         offset += func.bytecode.byteLength;
 
@@ -107,13 +113,13 @@ export async function writeHermesModule(module: HermesModule) {
             offset = padSize(offset);
             offset += func.jumpTables.byteLength;
         }
-
-        bcDedup.add(func.bytecodeId);
     }
 
     offset = padSize(offset);
 
     for (const func of module.functions) {
+        equal(func.header.infoOffset, offset); // XXX
+
         func.header.infoOffset = offset;
 
         if (func.header.overflowed) offset += largeFunctionHeader.byteSize;
@@ -122,6 +128,8 @@ export async function writeHermesModule(module: HermesModule) {
     }
 
     if (module.debugInfo) {
+        equal(offset, module.debugInfo.byteOffset); // XXX
+
         header.debugInfoOffset = offset;
         offset += module.debugInfo.byteLength;
     }
@@ -164,6 +172,7 @@ export async function writeHermesModule(module: HermesModule) {
 
     for (
         const [segment, [offset]] of [
+            [identifierHashes, segments.identifierHashes],
             [stringStorage, segments.stringStorage], // TODO
             [arrayBuffer, segments.arrayBuffer], // TODO
             [objectKeyBuffer, segments.objectKeyBuffer], // TODO
@@ -179,19 +188,20 @@ export async function writeHermesModule(module: HermesModule) {
         data.set(segment, offset);
     }
 
-    bcDedup.clear();
-
+    let lastOffset = segments.bytecodeStart[0];
     for (const func of module.functions) {
-        if (func.bytecodeId > 0 && bcDedup.has(func.bytecodeId)) continue;
-
         offset = func.header.offset!;
+        if (offset < lastOffset) continue; // deduped
+
+        lastOffset = offset;
+
         data.set(func.bytecode, offset);
+        offset += func.bytecode.byteLength;
 
         if (func.jumpTables) {
-            data.set(func.jumpTables, padSize(offset));
+            offset = padSize(offset);
+            data.set(func.jumpTables, offset);
         }
-
-        bcDedup.add(func.bytecodeId);
     }
 
     for (const func of module.functions) {
@@ -222,10 +232,7 @@ export async function writeHermesModule(module: HermesModule) {
         }
     }
 
-    const hash = await crypto.subtle.digest("SHA-1", new Uint8Array(buffer, 0, fileLength - 20));
-    console.log(new Uint8Array(hash));
-
-    // console.log(segments)
+    if (module.debugInfo) data.set(module.debugInfo, header.debugInfoOffset);
 
     return data;
 }

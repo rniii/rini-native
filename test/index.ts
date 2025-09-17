@@ -14,8 +14,10 @@ console.time("parse");
 const module = parseHermesModule(buffer);
 console.timeEnd("parse");
 
+// console.log(module.functions[8])
+
 console.time("write");
-const patched = await writeHermesModule(module);
+const patched = writeHermesModule(module);
 console.timeEnd("write");
 
 await writeFile("./discord/patched.hbc", patched);

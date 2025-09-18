@@ -1,4 +1,3 @@
-import { equal } from "assert";
 import { entries, padSize } from "../../utils/index.ts";
 import {
     type FunctionHeader,
@@ -30,7 +29,6 @@ export function writeHermesModule(module: HermesModule) {
     }
 
     const {
-        identifierHashes = new Uint8Array(),
         stringStorage = new Uint8Array(),
         bigIntTable = new Uint8Array(),
         bigIntStorage = new Uint8Array(),
@@ -39,8 +37,6 @@ export function writeHermesModule(module: HermesModule) {
         arrayBuffer = new Uint8Array(),
         objectKeyBuffer = new Uint8Array(),
         objectValueBuffer = new Uint8Array(),
-        cjsModuleTable = new Uint8Array(),
-        functionSourceTable = new Uint8Array(),
     } = module.segments;
 
     const overflowStringTable: OffsetLengthPair[] = [];
@@ -68,7 +64,7 @@ export function writeHermesModule(module: HermesModule) {
         globalCodeIndex: module.globalCodeIndex,
         functionCount: module.functions.length,
         stringKindCount: stringKinds.length,
-        identifierCount: identifierHashes.byteLength / identifierHash.byteSize,
+        identifierCount: module.identifierHashes.byteLength / identifierHash.byteSize,
         stringCount: module.strings.length,
         overflowStringCount: overflowStringTable.length,
         stringStorageSize: stringStorage.byteLength,
@@ -80,8 +76,8 @@ export function writeHermesModule(module: HermesModule) {
         objKeyBufferSize: objectKeyBuffer.byteLength,
         objValueBufferSize: objectValueBuffer.byteLength,
         segmentID: module.segmentID,
-        cjsModuleCount: cjsModuleTable.byteLength / offsetLengthPair.byteSize,
-        functionSourceCount: functionSourceTable.byteLength / offsetLengthPair.byteSize,
+        cjsModuleCount: module.cjsModuleTable.byteLength / offsetLengthPair.byteSize,
+        functionSourceCount: module.functionSourceTable.byteLength / offsetLengthPair.byteSize,
         debugInfoOffset: 0, // to be filled
         options: module.options,
     };
@@ -94,8 +90,6 @@ export function writeHermesModule(module: HermesModule) {
 
     for (const func of module.functions) {
         const bcOffset = bcMap.get(func.bytecodeId) ?? offset;
-
-        equal(bcOffset, func.header.offset); // XXX
 
         func.header.offset = bcOffset;
         func.header.bytecodeSizeInBytes = func.bytecode.byteLength;
@@ -118,8 +112,6 @@ export function writeHermesModule(module: HermesModule) {
     offset = padSize(offset);
 
     for (const func of module.functions) {
-        equal(func.header.infoOffset, offset); // XXX
-
         func.header.infoOffset = offset;
 
         if (func.header.overflowed) offset += largeFunctionHeader.byteSize;
@@ -128,8 +120,6 @@ export function writeHermesModule(module: HermesModule) {
     }
 
     if (module.debugInfo) {
-        equal(offset, module.debugInfo.byteOffset); // XXX
-
         header.debugInfoOffset = offset;
         offset += module.debugInfo.byteLength;
     }
@@ -172,7 +162,7 @@ export function writeHermesModule(module: HermesModule) {
 
     for (
         const [segment, [offset]] of [
-            [identifierHashes, segments.identifierHashes],
+            [module.identifierHashes, segments.identifierHashes],
             [stringStorage, segments.stringStorage], // TODO
             [arrayBuffer, segments.arrayBuffer], // TODO
             [objectKeyBuffer, segments.objectKeyBuffer], // TODO
@@ -181,8 +171,8 @@ export function writeHermesModule(module: HermesModule) {
             [bigIntStorage, segments.bigIntStorage], // TODO
             [regExpTable, segments.regExpTable], // TODO
             [regExpStorage, segments.regExpStorage], // TODO
-            [cjsModuleTable, segments.cjsModuleTable],
-            [functionSourceTable, segments.functionSourceTable],
+            [module.cjsModuleTable, segments.cjsModuleTable],
+            [module.functionSourceTable, segments.functionSourceTable],
         ]
     ) {
         data.set(segment, offset);

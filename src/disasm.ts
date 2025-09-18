@@ -1,5 +1,6 @@
 import { ArgType, Builtin, Opcode, opcodeTypes } from "decompiler/opcodes";
-import { type Bytecode, HermesFunction, HermesModule, Instruction } from "decompiler/types";
+import { type Bytecode, HermesFunction, HermesModule, Instruction, type Literal } from "decompiler/types";
+import { parseLiterals } from "../decompiler/src/literalParser.ts";
 import { Color as C, drawGutter } from "./formatting.ts";
 
 // this is (still) bad
@@ -57,6 +58,10 @@ function disassembleInstruction(module: HermesModule, func: HermesFunction, inst
             notes.push(`rel=${value >= 0 ? "+" : ""}${value}`);
             return formatAddr(instr.ip + value);
         }
+        if (builtinOperand[instr.opcode] === arg) {
+            notes.push(`builtin=#${value}`);
+            return Builtin[value];
+        }
         if (instr.stringOperands()?.includes(arg)) {
             notes.push(`str=${value}`);
             return JSON.stringify(module.strings[value].contents);
@@ -70,17 +75,47 @@ function disassembleInstruction(module: HermesModule, func: HermesFunction, inst
         if (instr.bigintOperands()?.includes(arg)) {
             return `${module.bigInts[value]}n`;
         }
-        if ([Opcode.CallBuiltin, Opcode.CallBuiltinLong].includes(instr.opcode) && arg === 1) {
-            notes.push(`builtin=#${value}`);
-            return Builtin[value];
-        }
         return value.toString();
     });
 
-    if (instr.opcode === Opcode.CreateEnvironment) notes.push(`envSize=${func.header.environmentSize}`);
+    switch (instr.opcode) {
+        case Opcode.CreateEnvironment:
+            notes.push(`envSize=${func.header.environmentSize}`);
+            break;
+        case Opcode.NewArrayWithBuffer:
+        case Opcode.NewArrayWithBufferLong: {
+            const [, count, valIdx] = instr.operands();
+
+            const items = parseLiterals(module.arrayBuffer, valIdx, count, module.strings);
+
+            notes.push(`[${items.map(v => JSON.stringify(v)).join(", ")}]`);
+            break;
+        }
+        case Opcode.NewObjectWithBuffer:
+        case Opcode.NewObjectWithBufferLong: {
+            const [, count, keyIdx, valIdx] = instr.operands();
+
+            const keys = parseLiterals(module.objectKeyBuffer, keyIdx, count, module.strings);
+            const values = parseLiterals(module.objectValueBuffer, valIdx, count, module.strings);
+
+            notes.push(`{ ${keys.map((k, i) => `${formatKey(k)}: ${JSON.stringify(values[i])}`).join(", ")} }`);
+            break;
+        }
+    }
 
     return { name, args, notes };
 }
+
+function formatKey(value: Literal) {
+    if (typeof value !== "string") return `[${value}]`;
+
+    return /[A-Za-z_$][\\w$]*/.test(value) ? value : JSON.stringify(value);
+}
+
+const builtinOperand: Partial<Record<Opcode, number>> = {
+    [Opcode.CallBuiltin]: 1,
+    [Opcode.CallBuiltinLong]: 1,
+};
 
 function formatAddr(addr: number) {
     return "0x" + formatHex(addr);

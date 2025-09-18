@@ -7,16 +7,27 @@ export { Instruction, isValidOpcode, type ParsedArguments, type ParsedInstructio
 export type ExceptionHandler = [number, number, number];
 export type DebugOffsets = [number, number, number];
 
+export type Literal = number | string | boolean | null;
+
 export class HermesModule {
+    sourceHash?: Uint8Array;
     globalCodeIndex = 0;
     segmentID = 0;
     options = 0;
+
+    // some segments which are not parsed, but may be written back to a patched file
+    identifierHashes = new Uint8Array();
+    cjsModuleTable = new Uint8Array();
+    functionSourceTable = new Uint8Array();
     debugInfo?: Uint8Array;
-    sourceHash?: Uint8Array;
 
     // File segments which are currently not handled.
     // TODO: remove this
-    segments: { [K in keyof Segment]?: Uint8Array } = {};
+    segments: Partial<Record<Segment, Uint8Array>> = {};
+
+    arrayBuffer = new Uint8Array();
+    objectKeyBuffer = new Uint8Array();
+    objectValueBuffer = new Uint8Array();
 
     strings: HermesString[] = [];
     bigInts: bigint[] = [];

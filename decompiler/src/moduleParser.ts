@@ -1,4 +1,4 @@
-import { fromEntries, mapValues, padSize, toBigInt } from "../../utils/index.ts";
+import { fromEntries, mapValues, padSize } from "../../utils/index.ts";
 import {
     type FunctionHeader,
     functionSourceEntry,
@@ -9,7 +9,7 @@ import {
     stringKind,
     stringTableEntry,
 } from "./bitfields.ts";
-import { HermesFunction, HermesIdentifier, HermesModule, HermesString } from "./types.ts";
+import { HermesFunction, HermesModule } from "./types.ts";
 
 // https://github.com/facebook/hermes/blob/v0.13.0/include/hermes/BCGen/HBC/BytecodeVersion.h#L23
 export const HERMES_VERSION = 96;
@@ -25,11 +25,14 @@ export const HERMES_SIGNATURE = 0x1F1903C103BC1FC6n;
 // compiler would never output bytecode which violates this layout.
 
 export function parseHermesModule(buffer: ArrayBuffer): HermesModule {
-    const module = new HermesModule();
-
     const view = new DataView(buffer);
     const header = parseHeader(buffer);
     const segments = mapValues(segmentModule(header), p => new Uint8Array(buffer, ...p));
+
+    const module = new HermesModule(
+        segments,
+        parseFunctions(),
+    );
 
     module.sourceHash = header.hash;
     module.globalCodeIndex = header.globalCodeIndex;
@@ -40,16 +43,9 @@ export function parseHermesModule(buffer: ArrayBuffer): HermesModule {
     module.cjsModuleTable = segments.cjsModuleTable;
     module.functionSourceTable = segments.functionSourceTable;
 
-    module.segments = segments;
-
     module.arrayBuffer = segments.arrayBuffer;
     module.objectKeyBuffer = segments.objectKeyBuffer;
     module.objectValueBuffer = segments.objectValueBuffer;
-
-    module.strings = parseStrings();
-    module.bigInts = parseBigInts();
-    module.regExps = parseRegExps();
-    module.functions = parseFunctions();
 
     // debug info is followed by a 20 byte SHA-1 hash, which we don't check
     module.debugInfo = new Uint8Array(
@@ -59,42 +55,6 @@ export function parseHermesModule(buffer: ArrayBuffer): HermesModule {
     );
 
     return module;
-
-    function parseStrings() {
-        const stringKinds = stringKind.parseArray(segments.stringKinds);
-        const stringTable = stringTableEntry.parseArray(segments.stringTable);
-        const overflowStringTable = offsetLengthPair.parseArray(segments.overflowStringTable);
-
-        return stringTable.map((entry, i) => {
-            const { isUtf16 } = entry;
-            const { length, offset } = entry.length === 0xff
-                ? overflowStringTable[entry.offset]
-                : entry;
-
-            const { kind } = findRLEIndex(stringKinds, i)!;
-            const bytes = segments.stringStorage.subarray(offset, offset + length * (isUtf16 ? 2 : 1));
-
-            return kind === 1
-                ? new HermesIdentifier(i, bytes, !!isUtf16)
-                : new HermesString(i, bytes, !!isUtf16);
-        });
-    }
-
-    function parseBigInts() {
-        const bigIntTable = offsetLengthPair.parseArray(segments.bigIntTable);
-
-        return bigIntTable.map(({ offset, length }) => (
-            toBigInt(segments.bigIntStorage.subarray(offset, offset + length))
-        ));
-    }
-
-    function parseRegExps() {
-        const regExpTable = offsetLengthPair.parseArray(segments.regExpTable);
-
-        return regExpTable.map(({ offset, length }) => (
-            segments.regExpStorage.subarray(offset, offset + length)
-        ));
-    }
 
     function parseFunctions() {
         const functionHeaders = smallFunctionHeader.parseArray(segments.functionHeaders);
@@ -186,10 +146,6 @@ export function parseHermesModule(buffer: ArrayBuffer): HermesModule {
             return func;
         });
     }
-}
-
-function findRLEIndex<T extends { count: number }>(arr: T[], index: number): T | undefined {
-    return arr.find(x => (index -= x.count) < 0);
 }
 
 function getLargeOffset(smallHeader: FunctionHeader) {

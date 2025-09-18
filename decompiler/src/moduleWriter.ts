@@ -3,78 +3,33 @@ import {
     type FunctionHeader,
     identifierHash,
     largeFunctionHeader,
-    type OffsetLengthPair,
     offsetLengthPair,
     smallFunctionHeader,
-    type StringKind,
     stringKind,
-    type StringTableEntry,
     stringTableEntry,
 } from "./bitfields.ts";
 import { type Header, HERMES_SIGNATURE, HERMES_VERSION, segmentModule } from "./moduleParser.ts";
-import { HermesIdentifier, type HermesModule } from "./types.ts";
+import { type HermesModule } from "./types.ts";
 
 export function writeHermesModule(module: HermesModule) {
-    const stringKinds: StringKind[] = [];
-
-    let curKind: StringKind | undefined;
-    for (const string of module.strings) {
-        const kind = string instanceof HermesIdentifier ? 1 : 0;
-
-        if (curKind && curKind!?.kind === kind) {
-            curKind.count++;
-        } else {
-            stringKinds.push(curKind = { count: 1, kind });
-        }
-    }
-
-    const {
-        stringStorage = new Uint8Array(),
-        bigIntTable = new Uint8Array(),
-        bigIntStorage = new Uint8Array(),
-        regExpTable = new Uint8Array(),
-        regExpStorage = new Uint8Array(),
-        arrayBuffer = new Uint8Array(),
-        objectKeyBuffer = new Uint8Array(),
-        objectValueBuffer = new Uint8Array(),
-    } = module.segments;
-
-    const overflowStringTable: OffsetLengthPair[] = [];
-
-    const stringTable: StringTableEntry[] = module.strings.map(string => {
-        const isUtf16 = +string.isUtf16;
-
-        let offset = string.bytes.byteOffset - stringStorage.byteOffset;
-        let length = string.bytes.byteLength / (isUtf16 ? 2 : 1);
-
-        if (offset >= 1 << stringTableEntry.fields.offset || length >= 0xff) {
-            overflowStringTable.push({ offset, length });
-
-            offset = overflowStringTable.length - 1;
-            length = 0xff;
-        }
-
-        return { isUtf16, offset, length };
-    });
-
     const header: Header = {
         version: HERMES_VERSION,
         hash: module.sourceHash ?? new Uint8Array(20),
         fileLength: 0, // to be filled
         globalCodeIndex: module.globalCodeIndex,
         functionCount: module.functions.length,
-        stringKindCount: stringKinds.length,
+        stringKindCount: module.strings.kinds.length,
         identifierCount: module.identifierHashes.byteLength / identifierHash.byteSize,
         stringCount: module.strings.length,
-        overflowStringCount: overflowStringTable.length,
-        stringStorageSize: stringStorage.byteLength,
+        overflowStringCount: module.strings.overflowEntries.length,
+        stringStorageSize: module.strings.storage.byteLength,
         bigIntCount: module.bigInts.length,
-        bigIntStorageSize: bigIntStorage.byteLength,
+        bigIntStorageSize: module.bigInts.storage.byteLength,
         regExpCount: module.regExps.length,
-        regExpStorageSize: regExpStorage.byteLength,
-        arrayBufferSize: arrayBuffer.byteLength,
-        objKeyBufferSize: objectKeyBuffer.byteLength,
-        objValueBufferSize: objectValueBuffer.byteLength,
+        regExpStorageSize: module.regExps.storage.byteLength,
+        arrayBufferSize: module.arrayBuffer.byteLength,
+        objKeyBufferSize: module.objectKeyBuffer.byteLength,
+        objValueBufferSize: module.objectValueBuffer.byteLength,
         segmentID: module.segmentID,
         cjsModuleCount: module.cjsModuleTable.byteLength / offsetLengthPair.byteSize,
         functionSourceCount: module.functionSourceTable.byteLength / offsetLengthPair.byteSize,
@@ -156,21 +111,21 @@ export function writeHermesModule(module: HermesModule) {
         offset += smallFunctionHeader.byteSize;
     }
 
-    stringKind.writeItems(view, segments.stringKinds[0], stringKinds);
-    stringTableEntry.writeItems(view, segments.stringTable[0], stringTable);
-    offsetLengthPair.writeItems(view, segments.overflowStringTable[0], overflowStringTable);
+    stringKind.writeItems(view, segments.stringKinds[0], module.strings.kinds);
+    stringTableEntry.writeItems(view, segments.stringTable[0], module.strings.entries);
+    offsetLengthPair.writeItems(view, segments.overflowStringTable[0], module.strings.overflowEntries);
+    offsetLengthPair.writeItems(view, segments.bigIntTable[0], module.bigInts.entries);
+    offsetLengthPair.writeItems(view, segments.regExpTable[0], module.regExps.entries);
 
     for (
         const [segment, [offset]] of [
             [module.identifierHashes, segments.identifierHashes],
-            [stringStorage, segments.stringStorage], // TODO
-            [arrayBuffer, segments.arrayBuffer], // TODO
-            [objectKeyBuffer, segments.objectKeyBuffer], // TODO
-            [objectValueBuffer, segments.objectValueBuffer], // TODO
-            [bigIntTable, segments.bigIntTable], // TODO
-            [bigIntStorage, segments.bigIntStorage], // TODO
-            [regExpTable, segments.regExpTable], // TODO
-            [regExpStorage, segments.regExpStorage], // TODO
+            [module.strings.storage, segments.stringStorage],
+            [module.arrayBuffer, segments.arrayBuffer], // TODO
+            [module.objectKeyBuffer, segments.objectKeyBuffer], // TODO
+            [module.objectValueBuffer, segments.objectValueBuffer], // TODO
+            [module.bigInts.storage, segments.bigIntStorage],
+            [module.regExps.storage, segments.regExpStorage],
             [module.cjsModuleTable, segments.cjsModuleTable],
             [module.functionSourceTable, segments.functionSourceTable],
         ]

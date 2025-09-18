@@ -1,5 +1,5 @@
 import { encodeInstructions, parseHermesModule } from "decompiler";
-import { Opcode, opcodeTypes } from "decompiler/opcodes";
+import { Opcode } from "decompiler/opcodes";
 import {
     HermesFunction,
     HermesModule,
@@ -53,25 +53,20 @@ class Patcher {
     sortedStrings: HermesString[];
 
     constructor(public module: HermesModule, public patchDefs: PatchDefinition[]) {
-        this.sortedStrings = module.strings.slice();
+        this.sortedStrings = Array.from(module.strings);
         this.sortedStrings.sort((a, b) => a.contents.length - b.contents.length);
     }
 
     applyPatches() {
-        class Patch {
+        interface Patch extends PatchDefinition {
             applied?: boolean;
-            stringIds: number[] = [];
-
-            constructor(public definition: PatchDefinition) {}
+            stringIds: number[];
         }
 
         const patches: Patch[] = [];
 
-        const strings = module.strings.slice();
-        strings.sort((a, b) => a.contents.length - b.contents.length);
-
         for (const def of this.patchDefs) {
-            const patch = new Patch(def);
+            const patch = { ...def, stringIds: [] } as Patch;
 
             for (const str of def.strings) {
                 const id = this.searchString(str);
@@ -100,7 +95,7 @@ class Patcher {
                 if (patch.stringIds.every(id => functionStrings.has(id))) {
                     const code = new MutableBytecode(this, func);
 
-                    patch.definition.patch(code, this);
+                    patch.patch(code, this);
                     patch.applied = true;
 
                     console.log(disassemble(module, func, code));

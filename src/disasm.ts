@@ -7,8 +7,8 @@ import { Color as C, drawGutter } from "./formatting.ts";
 export function disassemble(module: HermesModule, func: HermesFunction, code = func as Bytecode) {
     const header = func.header;
 
-    const name = module.strings[header.functionName].contents || "(anonymous)";
-    const addr = `${C.Green}@${formatAddr(header.offset)}`;
+    const name = module.strings.get(header.functionName).contents || "(anonymous)";
+    const addr = header.offset ? `${C.Green}@${formatAddr(header.offset)}` : "";
 
     let src = `#${func.id} ${C.Cyan}${name}${addr}${C.Reset}():\n`;
 
@@ -64,16 +64,16 @@ function disassembleInstruction(module: HermesModule, func: HermesFunction, inst
         }
         if (instr.stringOperands()?.includes(arg)) {
             notes.push(`str=${value}`);
-            return JSON.stringify(module.strings[value].contents);
+            return JSON.stringify(module.strings.get(value).contents);
         }
         if (instr.functionOperands()?.includes(arg)) {
             const { header } = module.functions[value];
 
             notes.push(`func=#${value} [${header.offset ? formatAddr(header.offset) : "new"}]`);
-            return module.strings[header.functionName].contents || "(anonymous)";
+            return module.strings.get(header.functionName).contents || "(anonymous)";
         }
         if (instr.bigintOperands()?.includes(arg)) {
-            return `${module.bigInts[value]}n`;
+            return `${module.bigInts.get(value)}n`;
         }
         return value.toString();
     });

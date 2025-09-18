@@ -1,4 +1,4 @@
-import type { HermesString, Literal } from "./types.ts";
+import type { HermesString, Literal, StringTable } from "./types.ts";
 
 enum TagType {
     Null = 0,
@@ -14,7 +14,7 @@ enum TagType {
 // XXX: ideally all literals should be parsed ahead of time, but it doesn't seem to be trivial
 // (trying to read everything in `module.arrayBuffer` fails after 3 tags)
 
-export function parseLiterals(buffer: Uint8Array, offset: number, count: number, strings: HermesString[]) {
+export function parseLiterals(buffer: Uint8Array, offset: number, count: number, strings: StringTable) {
     const literals: Literal[] = [];
 
     const view = new DataView(buffer.buffer, buffer.byteOffset);
@@ -45,15 +45,15 @@ export function parseLiterals(buffer: Uint8Array, offset: number, count: number,
                     offset += 8;
                     continue;
                 case TagType.LongString:
-                    literals.push(strings[view.getUint32(offset, true)].contents);
+                    literals.push(strings.get(view.getUint32(offset, true)).contents);
                     offset += 4;
                     continue;
                 case TagType.ShortString:
-                    literals.push(strings[view.getUint16(offset, true)].contents);
+                    literals.push(strings.get(view.getUint16(offset, true)).contents);
                     offset += 2;
                     continue;
                 case TagType.ByteString:
-                    literals.push(strings[view.getUint8(offset)].contents);
+                    literals.push(strings.get(view.getUint8(offset)).contents);
                     offset += 1;
                     continue;
                 case TagType.Integer:

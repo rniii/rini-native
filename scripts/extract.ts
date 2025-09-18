@@ -3,25 +3,29 @@ import { unzip } from "fflate";
 import { readFileSync, writeFileSync } from "fs";
 import { basename } from "path";
 
-$("adb", "wait-for-device");
+if (!process.argv.includes("--no-pull")) {
+    $("adb", "wait-for-device");
 
-const packages = $("adb", "shell", "pm path com.discord")
-    .replaceAll(/^package:/gm, "")
-    .split("\n")
-    .filter(name => /base\.apk$|split_config\.(arm.*|x86.*|xxhdpi|en)\.apk$/.test(name));
+    const packages = $("adb", "shell", "pm path com.discord")
+        .replaceAll(/^package:/gm, "")
+        .split("\n")
+        .filter(name => /base\.apk$|split_config\.(arm.*|x86.*|xxhdpi|en)\.apk$/.test(name));
 
-for (const pkg of packages) {
-    $("adb", "pull", pkg, `discord/${basename(pkg)}`);
+    for (const pkg of packages) {
+        $("adb", "pull", pkg, `discord/${basename(pkg)}`);
+    }
 }
 
+const ANDROID_MANIFEST = "AndroidManifest.xml";
 const ANDROID_BUNDLE = "assets/index.android.bundle";
 
 unzip(
     readFileSync("discord/base.apk"),
-    { filter: (file) => file.name === ANDROID_BUNDLE },
+    { filter: (file) => [ANDROID_MANIFEST, ANDROID_BUNDLE].includes(file.name) },
     (err, data) => {
         if (err) throw err;
 
+        writeFileSync("discord/manifest.xml", data[ANDROID_MANIFEST]);
         writeFileSync("discord/bundle.hbc", data[ANDROID_BUNDLE]);
     },
 );

@@ -94,3 +94,5 @@ export function formatSizeUnit(bytes: number) {
 
     return bytes + units.shift()!;
 }
+
+export const inspectCustom = Symbol.for("nodejs.util.inspect.custom")

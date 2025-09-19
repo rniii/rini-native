@@ -137,11 +137,11 @@ class MutableBytecode {
     bytecode: Rope<Uint8Array>;
 
     constructor(public patcher: Patcher, func: HermesFunction) {
-        this.bytecode = new Rope(func.bytecode.slice());
+        this.bytecode = Rope.from(func.bytecode.slice());
     }
 
     addInstruction(index: number, instr: Uint8Array) {
-        this.bytecode = this.bytecode.insert(index, new Rope(instr));
+        this.bytecode = this.bytecode.insert(index, Rope.from(instr));
     }
 
     match<const Q extends InstructionQuery[]>(...queries: Q): ContiguousMatch<Q> {

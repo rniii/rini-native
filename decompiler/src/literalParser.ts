@@ -1,4 +1,4 @@
-import type { HermesString, Literal, StringTable } from "./types.ts";
+import type { Literal, StringTable } from "./types.ts";
 
 enum TagType {
     Null = 0,

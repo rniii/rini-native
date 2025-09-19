@@ -1,27 +1,34 @@
 // Boehm, Atkinson, and Plass, "Ropes: An Alternative to Strings"
 // <https://www.cs.tufts.edu/comp/150FP/archive/hans-boehm/ropes.pdf>
 
+import type util from "util";
+import { inspectCustom } from "../utils/index.ts";
+
 type Sequence = String | any[] | NodeJS.TypedArray;
 
-export class Rope<S extends Sequence> {
-    _value?: S;
-    _concat?: [Rope<S>, Rope<S>];
+export abstract class Rope<S extends Sequence> {
+    abstract readonly depth: number;
+    abstract readonly length: number;
 
-    length: number;
+    abstract slice(start?: number, end?: number): Rope<S>;
+    abstract leaves(): Generator<S>;
 
-    constructor(seq: S) {
-        this._value = seq;
-        this.length = seq.length;
+    static from<S extends Sequence>(value: S) {
+        return new Leaf(value) as Rope<S>;
     }
 
-    concat(right: Rope<S>) {
+    concat(right: Rope<S>): Rope<S> {
         if (right.length === 0) return this;
         if (this.length === 0) return right;
 
-        return Object.setPrototypeOf({
-            _concat: [this, right],
-            length: this.length + right.length,
-        }, Rope.prototype) as Rope<S>;
+        return new Concat(this, right);
+    }
+
+    replace(start: number, end: number, value: Rope<S>) {
+        const left = this.slice(0, start);
+        const right = this.slice(end < start ? start : end);
+
+        return left.concat(value).concat(right);
     }
 
     insert(index: number, value: Rope<S>) {
@@ -31,9 +38,9 @@ export class Rope<S extends Sequence> {
         return left.concat(value).concat(right);
     }
 
-    remove(index: number, count = 1) {
-        const left = this.slice(0, index);
-        const right = this.slice(index + count);
+    remove(start: number, end: number) {
+        const left = this.slice(0, start);
+        const right = this.slice(end < start ? start : end);
 
         return left.concat(right);
     }
@@ -42,19 +49,60 @@ export class Rope<S extends Sequence> {
         return this.concat(value);
     }
 
-    slice(start = 0, end = this.length): Rope<S> {
-        if (this._value) {
-            return new Rope(
-                ArrayBuffer.isView(this._value)
-                    ? this._value.subarray(start, end) as S
-                    : this._value.slice(start, end) as S,
-            );
+    [inspectCustom](_depth: number, opts: util.InspectOptionsStylized, inspect: typeof util.inspect) {
+        let repr = "";
+
+        for (const rope of this.nodes()) {
+            if (rope instanceof Concat) repr += opts.stylize("< ", "special");
+            else if (rope instanceof Leaf) repr += inspect(rope.value, opts) + " ";
+            else repr += inspect(rope, opts);
         }
 
+        return `Rope [ ${repr}]`;
+    }
+
+    *nodes(): Generator<Rope<S>> {
+        yield this;
+    }
+}
+
+class Leaf<S extends Sequence> extends Rope<S> {
+    depth = 0;
+    length: number;
+
+    constructor(public value: S) {
+        super();
+        this.length = value.length;
+    }
+
+    slice(start?: number, end?: number): Rope<S> {
+        return Rope.from(
+            ArrayBuffer.isView(this.value)
+                ? this.value.subarray(start, end) as S
+                : this.value.slice(start, end) as S,
+        );
+    }
+
+    *leaves(): Generator<S> {
+        yield this.value;
+    }
+}
+
+class Concat<S extends Sequence> extends Rope<S> {
+    depth: number;
+    length: number;
+
+    constructor(readonly left: Rope<S>, readonly right: Rope<S>) {
+        super();
+        this.depth = 1 + Math.max(left.depth, right.depth);
+        this.length = left.length + right.length;
+    }
+
+    slice(start = 0, end = this.length): Rope<S> {
         if (start < 0) start = Math.max(0, start + this.length);
         if (end < 0) end = Math.max(0, end + this.length);
 
-        const [rope1, rope2] = this._concat!;
+        const rope1 = this.left, rope2 = this.right;
 
         const left = start <= 0 && end >= rope1.length + start
             ? rope1
@@ -68,20 +116,13 @@ export class Rope<S extends Sequence> {
     }
 
     *leaves(): Generator<S> {
-        if (this._concat) {
-            yield* this._concat[0].leaves();
-            yield* this._concat[1].leaves();
-        } else {
-            yield this._value!;
-        }
+        yield* this.left.leaves();
+        yield* this.right.leaves();
     }
 
-    *[Symbol.iterator](): Generator<S extends Iterable<infer T> ? T : never> {
-        if (this._concat) {
-            yield* this._concat[0];
-            yield* this._concat[1];
-        } else {
-            yield* this._value!;
-        }
+    *nodes(): Generator<Rope<S>> {
+        yield this;
+        yield* this.left.nodes();
+        yield* this.right.nodes();
     }
 }

@@ -82,11 +82,9 @@ export class BigIntTable extends DataTable<bigint> {
     }
 }
 
-export class RegExpTable extends DataTable<Uint8Array> {
-    get(index: number): Uint8Array {
-        const { offset, length } = this.entries[index];
-
-        return this.storage.subarray(offset, offset + length);
+export class RegExpTable extends DataTable<never> {
+    get(): never {
+        throw Error("Not implemented");
     }
 }
 
@@ -100,7 +98,7 @@ export class HermesModule {
     segmentID: number;
     options: number;
 
-    // some segments which are not parsed, but may be written back to a patched file
+    // some segments which are not parsed, but are written back to patched files
     identifierHashes: Uint8Array;
     cjsModuleTable: Uint8Array;
     functionSourceTable: Uint8Array;

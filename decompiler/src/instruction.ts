@@ -146,21 +146,30 @@ export class Instruction {
         switch (type) {
             case ArgType.UInt8:
             case ArgType.Reg8:
+                assertRange(value, 0, 2 ** 8);
                 return this.view.setUint8(this.ip + offset, value);
             case ArgType.Addr8:
+                assertRange(value, -(2 ** 7), +(2 ** 7));
                 return this.view.setInt8(this.ip + offset, value);
             case ArgType.UInt16:
+                assertRange(value, 0, 2 ** 16);
                 return this.view.setUint16(this.ip + offset, value, true);
             case ArgType.UInt32:
             case ArgType.Reg32:
+                assertRange(value, 0, 2 ** 32);
                 return this.view.setUint32(this.ip + offset, value, true);
             case ArgType.Imm32:
             case ArgType.Addr32:
+                assertRange(value, -(2 ** 31), +(2 ** 31));
                 return this.view.setInt32(this.ip + offset, value, true);
             case ArgType.Double:
                 return this.view.setFloat64(this.ip + offset, value, true);
         }
     }
+}
+
+function assertRange(value: number, min: number, max: number) {
+    if (value < min || value >= max) throw RangeError(`Value ${value} not in range [${min}, ${max})`);
 }
 
 export function encodeInstructions(instructions: RawInstruction[]) {

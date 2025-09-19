@@ -88,7 +88,7 @@ function disassembleInstruction(module: HermesModule, func: HermesFunction, inst
             break;
         case Opcode.NewArrayWithBuffer:
         case Opcode.NewArrayWithBufferLong: {
-            const [, count, valIdx] = instr.operands();
+            const [,, count, valIdx] = instr.operands();
 
             const items = parseLiterals(module.arrayBuffer, valIdx, count, module.strings);
 
@@ -97,7 +97,7 @@ function disassembleInstruction(module: HermesModule, func: HermesFunction, inst
         }
         case Opcode.NewObjectWithBuffer:
         case Opcode.NewObjectWithBufferLong: {
-            const [, count, keyIdx, valIdx] = instr.operands();
+            const [,, count, keyIdx, valIdx] = instr.operands();
 
             const keys = parseLiterals(module.objectKeyBuffer, keyIdx, count, module.strings);
             const values = parseLiterals(module.objectValueBuffer, valIdx, count, module.strings);

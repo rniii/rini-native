@@ -43,14 +43,20 @@ export function writeHermesModule(module: HermesModule) {
 
     const bcMap = new Map<number, number>();
 
+    const funcHeaders: FunctionHeader[] = [];
+
     for (const func of module.functions) {
         const bcOffset = bcMap.get(func.bytecodeId) ?? offset;
 
-        func.header.offset = bcOffset;
-        func.header.bytecodeSizeInBytes = func.bytecode.byteLength;
-        func.header.hasExceptionHandler = +!!func.exceptionHandlers.length;
-        func.header.hasDebugInfo = +!!func.debugOffsets;
-        func.header.overflowed = +smallFunctionHeader.overflows(func.header as FunctionHeader);
+        funcHeaders.push({
+            ...func.header,
+            offset: bcOffset,
+            bytecodeSizeInBytes: func.bytecode.byteLength,
+            infoOffset: 0,
+            hasExceptionHandler: +!!func.exceptionHandlers.length,
+            hasDebugInfo: +!!func.debugOffsets,
+            overflowed: 0,
+        });
 
         if (func.bytecodeId > 0 && bcMap.has(func.bytecodeId)) continue;
 
@@ -66,10 +72,16 @@ export function writeHermesModule(module: HermesModule) {
 
     offset = padSize(offset);
 
-    for (const func of module.functions) {
-        func.header.infoOffset = offset;
+    const smallHeaders: FunctionHeader[] = [];
 
-        if (func.header.overflowed) offset += largeFunctionHeader.byteSize;
+    for (const [i, func] of module.functions.entries()) {
+        const header = funcHeaders[i];
+        header.infoOffset = offset;
+
+        const small = getSmallHeader(header);
+        smallHeaders.push(small);
+
+        if (smallHeaders[i].overflowed) offset += largeFunctionHeader.byteSize;
         if (func.exceptionHandlers.length) offset += 4 + func.exceptionHandlers.length * 12;
         if (func.debugOffsets) offset += 12;
     }
@@ -101,16 +113,7 @@ export function writeHermesModule(module: HermesModule) {
         }
     }
 
-    offset = segments.functionHeaders[0];
-    for (const func of module.functions) {
-        if (func.header.overflowed) {
-            writeOverflowedHeader(view, offset, func.header as FunctionHeader);
-        } else {
-            smallFunctionHeader.write(view, offset, func.header as FunctionHeader);
-        }
-        offset += smallFunctionHeader.byteSize;
-    }
-
+    smallFunctionHeader.writeItems(view, segments.functionHeaders[0], smallHeaders);
     stringKind.writeItems(view, segments.stringKinds[0], module.strings.kinds);
     stringTableEntry.writeItems(view, segments.stringTable[0], module.strings.entries);
     offsetLengthPair.writeItems(view, segments.overflowStringTable[0], module.strings.overflowEntries);
@@ -134,8 +137,10 @@ export function writeHermesModule(module: HermesModule) {
     }
 
     let lastOffset = segments.bytecodeStart[0];
-    for (const func of module.functions) {
-        offset = func.header.offset!;
+    for (const [i, func] of module.functions.entries()) {
+        const header = funcHeaders[i];
+
+        offset = header.offset;
         if (offset < lastOffset) continue; // deduped
 
         lastOffset = offset;
@@ -149,12 +154,14 @@ export function writeHermesModule(module: HermesModule) {
         }
     }
 
-    for (const func of module.functions) {
-        offset = func.header.infoOffset!;
+    for (const [i, func] of module.functions.entries()) {
+        const header = funcHeaders[i];
+        const smallHeader = smallHeaders[i];
 
-        if (func.header.overflowed) {
-            func.header.overflowed = 0;
-            largeFunctionHeader.write(view, offset, func.header as FunctionHeader);
+        offset = header.infoOffset;
+
+        if (smallHeader.overflowed) {
+            largeFunctionHeader.write(view, offset, header);
 
             offset += largeFunctionHeader.byteSize;
         }
@@ -182,24 +189,26 @@ export function writeHermesModule(module: HermesModule) {
     return data;
 }
 
-// this SUCKS
-function writeOverflowedHeader(view: DataView, offset: number, smallheader: FunctionHeader) {
+function getSmallHeader(funcHeader: FunctionHeader) {
     const copy = {} as FunctionHeader;
 
-    for (const [field, { mask }] of smallFunctionHeader.segments) {
-        if (smallheader[field] > mask) break;
+    // copy flags first
+    copy.prohibitInvoke = funcHeader.prohibitInvoke;
+    copy.strictMode = funcHeader.strictMode;
+    copy.hasExceptionHandler = funcHeader.hasExceptionHandler;
+    copy.hasDebugInfo = funcHeader.hasDebugInfo;
 
-        copy[field] = smallheader[field];
+    for (const [field, { mask }] of smallFunctionHeader.segments) {
+        if (funcHeader[field] > mask) {
+            copy.offset = (funcHeader.infoOffset & 0xffff) >>> 0;
+            copy.infoOffset = funcHeader.infoOffset >>> 16;
+            copy.overflowed = 1;
+
+            return copy;
+        }
+
+        copy[field] = funcHeader[field];
     }
 
-    copy.offset = (smallheader.infoOffset & 0xffff) >>> 0;
-    copy.infoOffset = smallheader.infoOffset >>> 16;
-
-    copy.prohibitInvoke = smallheader.prohibitInvoke;
-    copy.strictMode = smallheader.strictMode;
-    copy.hasExceptionHandler = smallheader.hasExceptionHandler;
-    copy.hasDebugInfo = smallheader.hasDebugInfo;
-    copy.overflowed = 1;
-
-    smallFunctionHeader.write(view, offset, copy);
+    return copy;
 }

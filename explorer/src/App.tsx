@@ -1,4 +1,5 @@
-import { HermesModule, parseHermesModule } from "decompiler";
+import { parseHermesModule } from "decompiler";
+import type { HermesModule } from "decompiler/types";
 import { createResource, createSignal, type Setter, Suspense } from "solid-js";
 import { formatSizeUnit } from "../../utils/index.ts";
 

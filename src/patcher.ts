@@ -3,16 +3,16 @@ import { Opcode } from "decompiler/opcodes";
 import {
     HermesFunction,
     HermesModule,
-    HermesString,
     Instruction,
     type ParsedArguments,
     type PartialFunctionHeader,
+    Rope,
+    type UniqueString,
 } from "decompiler/types";
 import type { RawInstruction } from "../decompiler/src/instruction.ts";
 import { readArrayBuffer } from "../test/common.ts";
 import { formatSizeUnit, mapValues } from "../utils/index.ts";
 import { disassemble } from "./disasm.ts";
-import { Rope } from "./rope.ts";
 
 type OperandsQuery<Op extends Opcode> = ParsedArguments<Op> extends infer ParsedArgs extends readonly any[] ? {
         [Index in keyof ParsedArgs]: ParsedArgs[Index] | null;
@@ -50,7 +50,7 @@ interface PatchDefinition {
 }
 
 class Patcher {
-    sortedStrings: HermesString[];
+    sortedStrings: UniqueString[];
 
     constructor(public module: HermesModule, public patchDefs: PatchDefinition[]) {
         this.sortedStrings = Array.from(module.strings);

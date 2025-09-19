@@ -11,7 +11,7 @@ import {
     type StringTableEntry,
     stringTableEntry,
 } from "./bitfields.ts";
-import { HermesFunction, HermesIdentifier, HermesString } from "./types.ts";
+import { HermesFunction } from "./types.ts";
 
 // https://github.com/facebook/hermes/blob/v0.13.0/include/hermes/BCGen/HBC/BytecodeVersion.h#L23
 export const HERMES_VERSION = 96;
@@ -45,7 +45,12 @@ export abstract class DataTable<T> {
     }
 }
 
-export class StringTable extends DataTable<HermesString> {
+export type UniqueString = { id: number; contents: string };
+
+const Utf8D = new TextDecoder("utf-8");
+const Utf16D = new TextDecoder("utf-16");
+
+export class StringTable extends DataTable<UniqueString> {
     declare entries: StringTableEntry[];
 
     constructor(
@@ -57,7 +62,7 @@ export class StringTable extends DataTable<HermesString> {
         super(storage, entries);
     }
 
-    get(index: number): HermesString {
+    get(index: number): UniqueString {
         const entry = this.entries[index];
 
         const { isUtf16 } = entry;
@@ -65,12 +70,9 @@ export class StringTable extends DataTable<HermesString> {
             ? this.overflowEntries[entry.offset]
             : entry;
 
-        const { kind } = findRLEIndex(this.kinds, index)!;
         const bytes = this.storage.subarray(offset, offset + length * (isUtf16 ? 2 : 1));
 
-        return kind === 1
-            ? new HermesIdentifier(index, bytes, !!isUtf16)
-            : new HermesString(index, bytes, !!isUtf16);
+        return { id: index, contents: isUtf16 ? Utf16D.decode(bytes) : Utf8D.decode(bytes) };
     }
 }
 
@@ -86,10 +88,6 @@ export class RegExpTable extends DataTable<never> {
     get(): never {
         throw Error("Not implemented");
     }
-}
-
-function findRLEIndex<T extends { count: number }>(arr: T[], index: number): T | undefined {
-    return arr.find(x => (index -= x.count) < 0);
 }
 
 export class HermesModule {
@@ -275,14 +273,14 @@ export function segmentModule(header: Header) {
         identifierHashes: header.identifierCount * identifierHash.byteSize,
         stringTable: header.stringCount * stringTableEntry.byteSize,
         overflowStringTable: header.overflowStringCount * offsetLengthPair.byteSize,
-        stringStorage: header.stringStorageSize * 1,
-        arrayBuffer: header.arrayBufferSize * 1,
-        objectKeyBuffer: header.objKeyBufferSize * 1,
-        objectValueBuffer: header.objValueBufferSize * 1,
+        stringStorage: header.stringStorageSize,
+        arrayBuffer: header.arrayBufferSize,
+        objectKeyBuffer: header.objKeyBufferSize,
+        objectValueBuffer: header.objValueBufferSize,
         bigIntTable: header.bigIntCount * offsetLengthPair.byteSize,
-        bigIntStorage: header.bigIntStorageSize * 1,
+        bigIntStorage: header.bigIntStorageSize,
         regExpTable: header.regExpCount * offsetLengthPair.byteSize,
-        regExpStorage: header.regExpStorageSize * 1,
+        regExpStorage: header.regExpStorageSize,
         cjsModuleTable: header.cjsModuleCount * offsetLengthPair.byteSize,
         functionSourceTable: header.functionSourceCount * functionSourceEntry.byteSize,
         bytecodeStart: 0,

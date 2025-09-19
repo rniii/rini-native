@@ -2,9 +2,9 @@
 // <https://www.cs.tufts.edu/comp/150FP/archive/hans-boehm/ropes.pdf>
 
 import type util from "util";
-import { inspectCustom } from "../utils/index.ts";
+import { inspectCustom } from "../../utils/index.ts";
 
-type Sequence = String | any[] | NodeJS.TypedArray;
+type Sequence = String | NodeJS.TypedArray;
 
 export abstract class Rope<S extends Sequence> {
     abstract readonly depth: number;
@@ -78,9 +78,9 @@ class Leaf<S extends Sequence> extends Rope<S> {
     slice(start?: number, end?: number): Rope<S> {
         return Rope.from(
             ArrayBuffer.isView(this.value)
-                ? this.value.subarray(start, end) as S
-                : this.value.slice(start, end) as S,
-        );
+                ? this.value.subarray(start, end)
+                : this.value.slice(start, end),
+        ) as Rope<S>;
     }
 
     *leaves(): Generator<S> {

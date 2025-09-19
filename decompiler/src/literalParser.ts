@@ -1,4 +1,6 @@
-import type { Literal, StringTable } from "./types.ts";
+import type { StringTable } from "./types.ts";
+
+export type Literal = number | string | boolean | null;
 
 enum TagType {
     Null = 0,

@@ -8,13 +8,13 @@ import {
     stringKind,
     stringTableEntry,
 } from "./bitfields.ts";
-import { type Header, HERMES_SIGNATURE, HERMES_VERSION, segmentModule } from "./moduleParser.ts";
+import { type Header, HERMES_SIGNATURE, HERMES_VERSION, segmentModule } from "./module.ts";
 import { type HermesModule } from "./types.ts";
 
 export function writeHermesModule(module: HermesModule) {
     const header: Header = {
         version: HERMES_VERSION,
-        hash: module.sourceHash ?? new Uint8Array(20),
+        hash: module.sourceHash,
         fileLength: 0, // to be filled
         globalCodeIndex: module.globalCodeIndex,
         functionCount: module.functions.length,

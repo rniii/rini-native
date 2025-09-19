@@ -1,2 +1,2 @@
 export { encodeInstructions } from "./instruction.ts";
-export { parseHermesModule } from "./moduleParser.ts";
+export { parseHermesModule } from "./module.ts";

@@ -30,7 +30,11 @@ export function disassemble(module: HermesModule, func: HermesFunction, code = f
     const gutter = drawGutter(instrCount, pointers, { colors: true, curved: true });
 
     code.instructions().forEach((instr, i) => {
-        const { name, args, notes } = disassembleInstruction(module, func, instr);
+        try {
+            var { name, args, notes } = disassembleInstruction(module, func, instr);
+        } catch (error) {
+            throw new IllegalInstruction(func, instr, error as any);
+        }
 
         let line = `${C.Purple}${name}${C.Reset} ${args.join(", ")}`;
 
@@ -123,4 +127,14 @@ function formatAddr(addr: number) {
 
 function formatHex(value: number, bytes = 4) {
     return value.toString(16).padStart(bytes * 2, "0");
+}
+
+class IllegalInstruction extends Error {
+    override name = "IllegalInstruction";
+
+    constructor(public func: HermesFunction, public instruction: Instruction, cause: string | Error) {
+        const detail = `${Opcode[instruction.opcode]} ${JSON.stringify([...instruction.operands()])}`;
+
+        super(`Illegal instruction: ${detail}`, { cause });
+    }
 }

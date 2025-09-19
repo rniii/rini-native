@@ -24,7 +24,7 @@ export function parseLiterals(buffer: Uint8Array, offset: number, count: number,
 
         // 0tagllll or 1tagllll llllllll
         // 76543210    76543210 76543210
-        let tag: TagType = byte >> 4 & 0b111;
+        let tag: TagType = (byte >> 4) & 0b111;
         let len = byte & 0b1111;
 
         if (byte & 0x80) len = len << 8 | buffer[offset++];

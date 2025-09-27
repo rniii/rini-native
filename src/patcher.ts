@@ -1,9 +1,10 @@
 import { encodeInstructions, parseHermesModule } from "decompiler";
 import { Opcode } from "decompiler/opcodes";
 import {
-    HermesFunction,
     HermesModule,
     Instruction,
+    ModuleBytecode,
+    ModuleFunction,
     type ParsedArguments,
     type PartialFunctionHeader,
     Rope,
@@ -12,7 +13,6 @@ import {
 import type { RawInstruction } from "../decompiler/src/instruction.ts";
 import { readArrayBuffer } from "../test/common.ts";
 import { formatSizeUnit, mapValues } from "../utils/index.ts";
-import { disassemble } from "./disasm.ts";
 
 type OperandsQuery<Op extends Opcode> = ParsedArguments<Op> extends infer ParsedArgs extends readonly any[] ? {
         [Index in keyof ParsedArgs]: ParsedArgs[Index] | null;
@@ -84,7 +84,7 @@ class Patcher {
             const functionStrings = new Set<number>();
             const functionCallees = new Set<number>();
 
-            for (const instr of func.instructions()) {
+            for (const instr of func.bytecode.instructions()) {
                 instr.stringOperands()?.forEach(op => functionStrings.add(instr.getOperand(op)));
                 instr.functionOperands()?.forEach(op => functionCallees.add(instr.getOperand(op)));
 
@@ -97,8 +97,6 @@ class Patcher {
 
                     patch.patch(code, this);
                     patch.applied = true;
-
-                    console.log(disassemble(module, func, code));
                 }
             }
         });
@@ -123,7 +121,7 @@ class Patcher {
             strictMode: 1,
         };
 
-        this.module.functions.push(new HermesFunction(id, 0, header, bytecode));
+        this.module.functions.push(new ModuleFunction(id, header, new ModuleBytecode(bytecode)));
 
         return id;
     }
@@ -136,8 +134,8 @@ class Patcher {
 class MutableBytecode {
     bytecode: Rope<Uint8Array>;
 
-    constructor(public patcher: Patcher, func: HermesFunction) {
-        this.bytecode = Rope.from(func.bytecode.slice());
+    constructor(public patcher: Patcher, func: ModuleFunction) {
+        this.bytecode = Rope.from(func.bytecode.bytes.slice());
     }
 
     addInstruction(index: number, instr: Uint8Array) {

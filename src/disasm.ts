@@ -1,16 +1,16 @@
 import { ArgType, Builtin, Opcode, opcodeTypes } from "decompiler/opcodes";
-import { type Bytecode, HermesFunction, HermesModule, Instruction, type Literal } from "decompiler/types";
+import { HermesModule, Instruction, ModuleFunction, type Literal } from "decompiler/types";
 import { parseLiterals } from "../decompiler/src/literalParser.ts";
 import { Color as C, drawGutter } from "./formatting.ts";
 
 // this is (still) bad
-export function disassemble(module: HermesModule, func: HermesFunction, code = func as Bytecode) {
+export function disassemble(module: HermesModule, func: ModuleFunction, code = func.bytecode) {
     const header = func.header;
 
     const name = module.strings.get(header.functionName).contents || "(anonymous)";
-    const addr = header.offset ? `${C.Green}@${formatAddr(header.offset)}` : "";
+    const addr = `[${formatAddr(code.bytes.byteOffset)}]`;
 
-    let src = `#${func.id} ${C.Cyan}${name}${addr}${C.Reset}():\n`;
+    let src = `#${func.id} ${C.Cyan}${name} ${C.Green}${addr}${C.Reset}\n`;
 
     const addr2line: number[] = [];
     const jumps = new Map<number, number>();
@@ -46,7 +46,7 @@ export function disassemble(module: HermesModule, func: HermesFunction, code = f
     return src;
 }
 
-function disassembleInstruction(module: HermesModule, func: HermesFunction, instr: Instruction) {
+function disassembleInstruction(module: HermesModule, func: ModuleFunction, instr: Instruction) {
     const types = opcodeTypes[instr.opcode];
 
     const name = Opcode[instr.opcode];
@@ -59,21 +59,19 @@ function disassembleInstruction(module: HermesModule, func: HermesFunction, inst
             return `r${value}`;
         }
         if (type === ArgType.Addr8 || type === ArgType.Addr32) {
-            notes.push(`rel=${value >= 0 ? "+" : ""}${value}`);
             return formatAddr(instr.ip + value);
         }
         if (builtinOperand[instr.opcode] === arg) {
-            notes.push(`builtin=#${value}`);
             return Builtin[value];
         }
         if (instr.stringOperands()?.includes(arg)) {
-            notes.push(`str=${value}`);
+            notes.push(`str=$${value}`);
             return JSON.stringify(module.strings.get(value).contents);
         }
         if (instr.functionOperands()?.includes(arg)) {
-            const { header } = module.functions[value];
+            const { header, bytecode } = module.functions[value];
 
-            notes.push(`func=#${value} [${header.offset ? formatAddr(header.offset) : "new"}]`);
+            notes.push(`func=#${value} [${formatAddr(bytecode.bytes.byteOffset)}]`);
             return module.strings.get(header.functionName).contents || "(anonymous)";
         }
         if (instr.bigintOperands()?.includes(arg)) {
@@ -113,7 +111,7 @@ function disassembleInstruction(module: HermesModule, func: HermesFunction, inst
 function formatKey(value: Literal) {
     if (typeof value !== "string") return `[${value}]`;
 
-    return /[A-Za-z_$][\\w$]*/.test(value) ? value : JSON.stringify(value);
+    return /^[A-Za-z_$][\w$]*$/.test(value) ? value : JSON.stringify(value);
 }
 
 const builtinOperand: Partial<Record<Opcode, number>> = {
@@ -132,7 +130,7 @@ function formatHex(value: number, bytes = 4) {
 class IllegalInstruction extends Error {
     override name = "IllegalInstruction";
 
-    constructor(public func: HermesFunction, public instruction: Instruction, cause: string | Error) {
+    constructor(public func: ModuleFunction, public instruction: Instruction, cause: string | Error) {
         const detail = `${Opcode[instruction.opcode]} ${JSON.stringify([...instruction.operands()])}`;
 
         super(`Illegal instruction: ${detail}`, { cause });

@@ -16,16 +16,14 @@ if (!process.argv.includes("--no-pull")) {
     }
 }
 
-const ANDROID_MANIFEST = "AndroidManifest.xml";
 const ANDROID_BUNDLE = "assets/index.android.bundle";
 
 unzip(
     readFileSync("discord/base.apk"),
-    { filter: (file) => [ANDROID_MANIFEST, ANDROID_BUNDLE].includes(file.name) },
+    { filter: (file) => file.name === ANDROID_BUNDLE },
     (err, data) => {
         if (err) throw err;
 
-        writeFileSync("discord/manifest.xml", data[ANDROID_MANIFEST]);
         writeFileSync("discord/bundle.hbc", data[ANDROID_BUNDLE]);
     },
 );

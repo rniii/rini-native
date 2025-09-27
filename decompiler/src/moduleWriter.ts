@@ -9,7 +9,7 @@ import {
     stringTableEntry,
 } from "./bitfields.ts";
 import { type Header, HERMES_SIGNATURE, HERMES_VERSION, segmentModule } from "./module.ts";
-import { type HermesModule } from "./types.ts";
+import { ModuleBytecode, type HermesModule } from "./types.ts";
 
 export function writeHermesModule(module: HermesModule) {
     const header: Header = {
@@ -41,34 +41,27 @@ export function writeHermesModule(module: HermesModule) {
 
     let offset = segments.bytecodeStart[0];
 
-    const bcMap = new Map<number, number>();
+    const bcMap = new Map<ModuleBytecode, number>();
 
-    const funcHeaders: FunctionHeader[] = [];
+    for (const bytecode of module.bytecode) {
+        bcMap.set(bytecode, offset);
 
-    for (const func of module.functions) {
-        const bcOffset = bcMap.get(func.bytecodeId) ?? offset;
-
-        funcHeaders.push({
-            ...func.header,
-            offset: bcOffset,
-            bytecodeSizeInBytes: func.bytecode.byteLength,
-            infoOffset: 0,
-            hasExceptionHandler: +!!func.exceptionHandlers.length,
-            hasDebugInfo: +!!func.debugOffsets,
-            overflowed: 0,
-        });
-
-        if (func.bytecodeId > 0 && bcMap.has(func.bytecodeId)) continue;
-
-        bcMap.set(func.bytecodeId, offset);
-
-        offset += func.bytecode.byteLength;
-
-        if (func.jumpTables) {
+        offset += bytecode.bytes.byteLength;
+        if (bytecode.jumpTables) {
             offset = padSize(offset);
-            offset += func.jumpTables.byteLength;
+            offset += bytecode.jumpTables.byteLength;
         }
     }
+
+    const funcHeaders: FunctionHeader[] = module.functions.map(func => ({
+        ...func.header,
+        offset: bcMap.get(func.bytecode)!,
+        bytecodeSizeInBytes: func.bytecode.bytes.byteLength,
+        infoOffset: 0,
+        hasExceptionHandler: +!!func.exceptionHandlers.length,
+        hasDebugInfo: +!!func.debugOffsets,
+        overflowed: 0,
+    }));
 
     offset = padSize(offset);
 
@@ -136,21 +129,13 @@ export function writeHermesModule(module: HermesModule) {
         data.set(segment, offset);
     }
 
-    let lastOffset = segments.bytecodeStart[0];
-    for (const [i, func] of module.functions.entries()) {
-        const header = funcHeaders[i];
+    for (let [bytecode, offset] of bcMap) {
+        data.set(bytecode.bytes, offset);
+        offset += bytecode.bytes.byteLength;
 
-        offset = header.offset;
-        if (offset < lastOffset) continue; // deduped
-
-        lastOffset = offset;
-
-        data.set(func.bytecode, offset);
-        offset += func.bytecode.byteLength;
-
-        if (func.jumpTables) {
+        if (bytecode.jumpTables) {
             offset = padSize(offset);
-            data.set(func.jumpTables, offset);
+            data.set(bytecode.jumpTables, offset);
         }
     }
 

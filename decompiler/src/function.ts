@@ -16,20 +16,14 @@ export type PartialFunctionHeader = Pick<
     | "strictMode"
 >;
 
-export class HermesFunction {
-    debugOffsets?: DebugOffsets;
-    exceptionHandlers: ExceptionHandler[] = [];
-
+export class ModuleBytecode {
     constructor(
-        public id: number,
-        public bytecodeId: number,
-        public header: PartialFunctionHeader,
-        public bytecode: Uint8Array,
+        public bytes: Uint8Array,
         public jumpTables?: Uint8Array,
     ) {}
 
     *instructions() {
-        const bc = this.bytecode;
+        const bc = this.bytes;
         const view = new DataView(bc.buffer, bc.byteOffset, bc.byteLength);
 
         let ip = 0;
@@ -42,6 +36,13 @@ export class HermesFunction {
     }
 }
 
-export interface Bytecode {
-    instructions(): Generator<Instruction>;
+export class ModuleFunction {
+    debugOffsets?: DebugOffsets;
+    exceptionHandlers: ExceptionHandler[] = [];
+
+    constructor(
+        public id: number,
+        public header: PartialFunctionHeader,
+        public bytecode: ModuleBytecode,
+    ) {}
 }

@@ -11,7 +11,7 @@ import {
     type StringTableEntry,
     stringTableEntry,
 } from "./bitfields.ts";
-import { HermesFunction } from "./types.ts";
+import { ModuleBytecode, ModuleFunction } from "./function.ts";
 
 // https://github.com/facebook/hermes/blob/v0.13.0/include/hermes/BCGen/HBC/BytecodeVersion.h#L23
 export const HERMES_VERSION = 96;
@@ -110,7 +110,8 @@ export class HermesModule {
     bigInts: BigIntTable;
     regExps: RegExpTable;
 
-    functions: HermesFunction[];
+    bytecode: ModuleBytecode[];
+    functions: ModuleFunction[];
 
     constructor(
         header: Header,
@@ -154,7 +155,7 @@ export class HermesModule {
             offsetLengthPair.parseArray(segments.regExpTable),
         );
 
-        this.functions = parseFunctions(segments, buffer);
+        [this.bytecode, this.functions] = parseFunctions(segments, buffer);
     }
 }
 
@@ -200,16 +201,15 @@ function parseFunctions(segments: Record<Segment, Uint8Array>, buffer: ArrayBuff
     // first infoOffset always follows last function's bytecode
     if (lastOffset) bytecodeLengths.set(lastOffset, functionHeaders[0].infoOffset - lastOffset);
 
-    // deduplicate Uint8Arrays
-    const bytecodes = new Map<number, [Uint8Array, Uint8Array | undefined]>();
+    // deduplicate bytecode
+    const bytecodes = new Map<number, ModuleBytecode>();
+    const functions = functionHeaders.map((header, i) => {
+        let bytecode = bytecodes.get(header.offset);
 
-    return functionHeaders.map((header, i) => {
-        if (bytecodes.has(header.offset)) {
-            var [bytecode, jumpTables] = bytecodes.get(header.offset)!;
-        } else {
-            var bytecode = new Uint8Array(buffer, header.offset, header.bytecodeSizeInBytes);
-
+        if (!bytecode) {
+            const bytes = new Uint8Array(buffer, header.offset, header.bytecodeSizeInBytes);
             const extraBytes = bytecodeLengths.get(header.offset)! - header.bytecodeSizeInBytes;
+            let jumpTables;
 
             if (extraBytes > 0) {
                 const tableStart = header.offset + header.bytecodeSizeInBytes;
@@ -223,10 +223,11 @@ function parseFunctions(segments: Record<Segment, Uint8Array>, buffer: ArrayBuff
                 }
             }
 
-            bytecodes.set(header.offset, [bytecode, jumpTables]);
+            bytecode = new ModuleBytecode(bytes, jumpTables);
+            bytecodes.set(header.offset, bytecode);
         }
 
-        const func = new HermesFunction(i, header.offset, header, bytecode, jumpTables);
+        const func = new ModuleFunction(i, header, bytecode);
 
         let offset = header.infoOffset;
         if (header.overflowed) offset += largeFunctionHeader.byteSize;
@@ -256,6 +257,8 @@ function parseFunctions(segments: Record<Segment, Uint8Array>, buffer: ArrayBuff
 
         return func;
     });
+
+    return [[...bytecodes.values()], functions] as [ModuleBytecode[], ModuleFunction[]];
 }
 
 function getLargeOffset(smallHeader: FunctionHeader) {

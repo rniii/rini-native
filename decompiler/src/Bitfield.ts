@@ -76,14 +76,6 @@ export class Bitfield<K extends string> {
             offset += this.byteSize;
         }
     }
-
-    overflows(value: Record<K, number>) {
-        for (const [field, { mask }] of this.segments) {
-            if (value[field] >= mask) return true;
-        }
-
-        return false;
-    }
 }
 
 export type ParsedBitfield<T extends Bitfield<string>> = T["fields"];

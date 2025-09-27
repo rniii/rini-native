@@ -183,6 +183,8 @@ export function encodeInstructions(instructions: RawInstruction[]) {
         bytecode[ip] = value[0];
         const instr = new Instruction(ip, view);
         value.slice(1).forEach((arg, i) => instr.setOperand(i, arg));
+
+        ip += instr.width;
     }
 
     return bytecode;

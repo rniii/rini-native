@@ -5,5 +5,3 @@ export { ModuleBytecode, ModuleFunction, type PartialFunctionHeader } from "./fu
 export { Instruction, isValidOpcode, type ParsedArguments, type ParsedInstruction } from "./instruction.ts";
 
 export { type Literal } from "./literalParser.ts";
-
-export { Rope } from "./rope.ts";

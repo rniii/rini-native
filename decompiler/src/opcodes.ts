@@ -27,7 +27,7 @@ export const enum ArgType {
 /**
  * Numeric Hermes instruction opcodes.
  */
-export enum Opcode { // {{{
+export enum Opcode { //#region
     Unreachable,
     NewObjectWithBuffer,
     NewObjectWithBufferLong,
@@ -234,12 +234,16 @@ export enum Opcode { // {{{
     Store8,
     Store16,
     Store32,
-} // }}}
+} //#endregion
+
+export type OpcodeMap<T> = Readonly<Partial<Record<Opcode, T>>>;
+
+export type OperandSet = OpcodeMap<readonly number[]>;
 
 /**
  * Argument type corresponding to {@link Opcode}.
  */
-export const opcodeTypes = { // {{{
+export const opcodeTypes = { //#region
     [Opcode.Unreachable]: [],
     [Opcode.NewObjectWithBuffer]: [ArgType.Reg8, ArgType.UInt16, ArgType.UInt16, ArgType.UInt16, ArgType.UInt16],
     [Opcode.NewObjectWithBufferLong]: [ArgType.Reg8, ArgType.UInt16, ArgType.UInt16, ArgType.UInt32, ArgType.UInt32],
@@ -446,24 +450,22 @@ export const opcodeTypes = { // {{{
     [Opcode.Store8]: [ArgType.Reg8, ArgType.Reg8, ArgType.Reg8],
     [Opcode.Store16]: [ArgType.Reg8, ArgType.Reg8, ArgType.Reg8],
     [Opcode.Store32]: [ArgType.Reg8, ArgType.Reg8, ArgType.Reg8],
-} as const; // }}}
-
-export type OperandMap = Readonly<Partial<Record<Opcode, readonly number[]>>>;
+} as const; //#endregion
 
 /**
  * Opcodes which have operands referring to the bigint table.
  */
-const BIGINT_OPERANDS = { // {{{
+const BIGINT_OPERANDS = { //#region
     [Opcode.LoadConstBigInt]: [1],
     [Opcode.LoadConstBigIntLongIndex]: [1],
-} as const; // }}}
-export type BigIntOperandMap = typeof BIGINT_OPERANDS;
-export const bigintOperands: OperandMap = BIGINT_OPERANDS;
+} as const; //#endregion
+export type BigIntOperands = typeof BIGINT_OPERANDS;
+export const bigintOperands: OperandSet = BIGINT_OPERANDS;
 
 /**
  * Opcodes which have operands referring to the function table.
  */
-const FUNCTION_OPERANDS = { // {{{
+const FUNCTION_OPERANDS = { //#region
     [Opcode.CallDirect]: [2],
     [Opcode.CreateClosure]: [2],
     [Opcode.CreateClosureLongIndex]: [2],
@@ -473,14 +475,14 @@ const FUNCTION_OPERANDS = { // {{{
     [Opcode.CreateAsyncClosureLongIndex]: [2],
     [Opcode.CreateGenerator]: [2],
     [Opcode.CreateGeneratorLongIndex]: [2],
-} as const; // }}}
-export type FunctionOperandMap =   typeof FUNCTION_OPERANDS;
-export const functionOperands: OperandMap = FUNCTION_OPERANDS;
+} as const; //#endregion
+export type FunctionOperands = typeof FUNCTION_OPERANDS;
+export const functionOperands: OperandSet = FUNCTION_OPERANDS;
 
 /**
  * Opcodes which have operands referring to the string table.
  */
-const STRING_OPERANDS = { // {{{
+const STRING_OPERANDS = { //#region
     [Opcode.DeclareGlobalVar]: [0],
     [Opcode.ThrowIfHasRestrictedGlobalProperty]: [0],
     [Opcode.GetByIdShort]: [3],
@@ -502,11 +504,11 @@ const STRING_OPERANDS = { // {{{
     [Opcode.LoadConstString]: [1],
     [Opcode.LoadConstStringLongIndex]: [1],
     [Opcode.CreateRegExp]: [1, 2],
-} as const; // }}}
-export type StringOperandMap = typeof STRING_OPERANDS;
-export const stringOperands: OperandMap = STRING_OPERANDS;
+} as const; //#endregion
+export type StringOperands = typeof STRING_OPERANDS;
+export const stringOperands: OperandSet = STRING_OPERANDS;
 
-export enum Builtin { // {{{
+export enum Builtin { //#region
     "Array.isArray",
     "Date.UTC",
     "Date.parse",
@@ -559,6 +561,57 @@ export enum Builtin { // {{{
     "exponentiationOperator",
     "initRegexNamedGroups",
     "getOriginalNativeErrorConstructor",
-} // }}}
+} //#endregion
 
-// vim: set foldenable:
+export const longOpcodes: OpcodeMap<Opcode> = { //#region
+    [Opcode.NewObjectWithBuffer]: Opcode.NewObjectWithBufferLong,
+    [Opcode.NewArrayWithBuffer]: Opcode.NewArrayWithBufferLong,
+    [Opcode.Mov]: Opcode.MovLong,
+    [Opcode.GetByIdShort]: Opcode.GetById,
+    [Opcode.GetById]: Opcode.GetByIdLong,
+    [Opcode.TryGetById]: Opcode.TryGetByIdLong,
+    [Opcode.PutById]: Opcode.PutByIdLong,
+    [Opcode.TryPutById]: Opcode.TryPutByIdLong,
+    [Opcode.PutNewOwnByIdShort]: Opcode.PutNewOwnById,
+    [Opcode.PutNewOwnById]: Opcode.PutNewOwnByIdLong,
+    [Opcode.PutNewOwnNEById]: Opcode.PutNewOwnNEByIdLong,
+    [Opcode.DelById]: Opcode.DelByIdLong,
+    [Opcode.Call]: Opcode.CallLong,
+    [Opcode.Construct]: Opcode.ConstructLong,
+    [Opcode.CallDirect]: Opcode.CallDirectLongIndex,
+    [Opcode.CallBuiltin]: Opcode.CallBuiltinLong,
+    [Opcode.CreateClosure]: Opcode.CreateClosureLongIndex,
+    [Opcode.CreateGeneratorClosure]: Opcode.CreateGeneratorClosureLongIndex,
+    [Opcode.CreateAsyncClosure]: Opcode.CreateAsyncClosureLongIndex,
+    [Opcode.LoadParam]: Opcode.LoadParamLong,
+    [Opcode.LoadConstBigInt]: Opcode.LoadConstBigIntLongIndex,
+    [Opcode.LoadConstString]: Opcode.LoadConstStringLongIndex,
+    [Opcode.CreateGenerator]: Opcode.CreateGeneratorLongIndex,
+    [Opcode.Jmp]: Opcode.JmpLong,
+    [Opcode.JmpTrue]: Opcode.JmpTrueLong,
+    [Opcode.JmpFalse]: Opcode.JmpFalseLong,
+    [Opcode.JmpUndefined]: Opcode.JmpUndefinedLong,
+    [Opcode.SaveGenerator]: Opcode.SaveGeneratorLong,
+    [Opcode.JLess]: Opcode.JLessLong,
+    [Opcode.JNotLess]: Opcode.JNotLessLong,
+    [Opcode.JLessN]: Opcode.JLessNLong,
+    [Opcode.JNotLessN]: Opcode.JNotLessNLong,
+    [Opcode.JLessEqual]: Opcode.JLessEqualLong,
+    [Opcode.JNotLessEqual]: Opcode.JNotLessEqualLong,
+    [Opcode.JLessEqualN]: Opcode.JLessEqualNLong,
+    [Opcode.JNotLessEqualN]: Opcode.JNotLessEqualNLong,
+    [Opcode.JGreater]: Opcode.JGreaterLong,
+    [Opcode.JNotGreater]: Opcode.JNotGreaterLong,
+    [Opcode.JGreaterN]: Opcode.JGreaterNLong,
+    [Opcode.JNotGreaterN]: Opcode.JNotGreaterNLong,
+    [Opcode.JGreaterEqual]: Opcode.JGreaterEqualLong,
+    [Opcode.JNotGreaterEqual]: Opcode.JNotGreaterEqualLong,
+    [Opcode.JGreaterEqualN]: Opcode.JGreaterEqualNLong,
+    [Opcode.JNotGreaterEqualN]: Opcode.JNotGreaterEqualNLong,
+    [Opcode.JEqual]: Opcode.JEqualLong,
+    [Opcode.JNotEqual]: Opcode.JNotEqualLong,
+    [Opcode.JStrictEqual]: Opcode.JStrictEqualLong,
+    [Opcode.JStrictNotEqual]: Opcode.JStrictNotEqualLong,
+}; //#endregion
+
+// vim: set foldenable foldmarker=//#region,//#endregion:

@@ -1,195 +1,15 @@
-import { encodeInstructions, parseHermesModule } from "decompiler";
+import { parseHermesModule } from "decompiler";
 import { Opcode } from "decompiler/opcodes";
-import {
-    HermesModule,
-    Instruction,
-    ModuleBytecode,
-    ModuleFunction,
-    type ParsedArguments,
-    type PartialFunctionHeader,
-    Rope,
-    type UniqueString,
-} from "decompiler/types";
-import type { RawInstruction } from "../decompiler/src/instruction.ts";
 import { readArrayBuffer } from "../test/common.ts";
 import { formatSizeUnit, mapValues } from "../utils/index.ts";
+import { ModulePatcher, MutableFunction } from "decompiler/mutable";
+import { writeHermesModule } from "../decompiler/src/moduleWriter.ts";
+import { writeFile } from "fs/promises";
 
-type OperandsQuery<Op extends Opcode> =
-    ParsedArguments<Op> extends infer ParsedArgs extends ReadonlyArray<any>
-        ? { [Index in keyof ParsedArgs]: ParsedArgs[Index] | null }
-        : never;
-
-type RawOperandsQuery = (number | null)[];
-
-type InstructionQuery<Op extends Opcode = Opcode> = Op extends unknown ? [Op, ...OperandsQuery<Op>] : never;
-
-type ContiguousMatch<Q extends InstructionQuery[]> = {
-    [Index in keyof Q]: MatchedInstruction<Q[Index][0]>;
-};
-
-class MatchedInstruction<Op extends Opcode> {
-    ip: number;
-    opcode: Op;
-    args: { -readonly [P in keyof ParsedArguments<Op>]: number };
-
-    constructor(instr: Instruction) {
-        this.ip = instr.ip;
-        this.opcode = instr.opcode as Op;
-        this.args = new Proxy([...instr.operands()], {
-            set(target, p, value, r) {
-                if (typeof p === "string" && +p) instr.setOperand(+p, value);
-
-                return Reflect.set(target, p, value, r);
-            },
-        }) as any;
-    }
-}
-
-interface PatchDefinition {
+export interface PatchDefinition {
     strings: string[];
     opcodes?: Opcode[];
-    patch(f: MutableBytecode, m: Patcher): void;
-}
-
-class Patcher {
-    sortedStrings: UniqueString[];
-
-    constructor(public module: HermesModule, public patchDefs: PatchDefinition[]) {
-        this.sortedStrings = Array.from(module.strings);
-        this.sortedStrings.sort((a, b) => a.contents.length - b.contents.length);
-    }
-
-    applyPatches() {
-        interface Patch extends PatchDefinition {
-            applied?: boolean;
-            stringIds: number[];
-        }
-
-        const patches: Patch[] = [];
-
-        for (const def of this.patchDefs) {
-            const patch = { ...def, stringIds: [] } as Patch;
-
-            for (const str of def.strings) {
-                const id = this.searchString(str);
-
-                if (id < 0) throw Error(`String ${JSON.stringify(str)} couldn't be found`);
-
-                patch.stringIds.push(id);
-            }
-
-            patches.push(patch);
-        }
-
-        let totalInstrs = 0;
-        module.functions.forEach(func => {
-            const functionStrings = new Set<number>();
-            const functionCallees = new Set<number>();
-
-            for (const instr of func.bytecode.instructions()) {
-                instr.stringOperands()?.forEach(op => functionStrings.add(instr.getOperand(op)));
-                instr.functionOperands()?.forEach(op => functionCallees.add(instr.getOperand(op)));
-
-                totalInstrs++;
-            }
-
-            for (const patch of patches) {
-                if (patch.stringIds.every(id => functionStrings.has(id))) {
-                    const code = new MutableBytecode(this, func);
-
-                    patch.patch(code, this);
-                    patch.applied = true;
-                }
-            }
-        });
-
-        console.log(`Scanned ${totalInstrs} instructions`);
-        console.log(`${patches.filter(p => p.applied).length} / ${patches.length} patches applied`);
-    }
-
-    createFunction(bytecode: Uint8Array, options: {
-        paramCount: number;
-    }) {
-        const id = this.module.functions.length;
-        const header: PartialFunctionHeader = {
-            paramCount: options.paramCount,
-            functionName: this.sortedStrings[0].id,
-            // XXX: These could be calculated, but writing complex functions by hand is discouraged
-            frameSize: 0,
-            environmentSize: 0,
-            highestReadCacheIndex: 0,
-            highestWriteCacheIndex: 0,
-            prohibitInvoke: 0,
-            strictMode: 1,
-        };
-
-        this.module.functions.push(new ModuleFunction(id, header, new ModuleBytecode(bytecode)));
-
-        return id;
-    }
-
-    searchString(str: string) {
-        return this.sortedStrings.find(v => v.contents.includes(str))?.id ?? -1;
-    }
-}
-
-class MutableBytecode {
-    bytecode: Rope<Uint8Array>;
-
-    constructor(public patcher: Patcher, func: ModuleFunction) {
-        this.bytecode = Rope.from(func.bytecode.bytes.slice());
-    }
-
-    addInstruction(index: number, instr: Uint8Array) {
-        this.bytecode = this.bytecode.insert(index, Rope.from(instr));
-    }
-
-    match<const Q extends InstructionQuery[]>(...queries: Q): ContiguousMatch<Q> {
-        const normalisedQuery = queries.map(q => (
-            q.map(value => {
-                if (typeof value === "string") return this.patcher.searchString(value);
-                if (typeof value === "bigint") throw "todo";
-
-                return value;
-            })
-        ));
-
-        const matches = (instr: Instruction, query: RawOperandsQuery) => {
-            return query[0] === instr.opcode
-                && instr.operands().every((arg, i) => query[i + 1] === null || arg === query[i + 1]);
-        };
-
-        let i = 0;
-        let match: MatchedInstruction<any>[] = [];
-
-        for (const instr of this.instructions()) {
-            if (matches(instr, normalisedQuery[i])) {
-                match.push(new MatchedInstruction(instr));
-                i++;
-            } else {
-                match = [];
-                i = 0;
-            }
-
-            if (i >= queries.length) return match as ContiguousMatch<Q>;
-        }
-
-        throw Error("Match failed");
-    }
-
-    *instructions() {
-        for (const leaf of this.bytecode.leaves()) {
-            const view = new DataView(leaf.buffer, leaf.byteOffset, leaf.byteLength);
-
-            let ip = 0;
-            while (ip < leaf.byteLength) {
-                const instr = new Instruction(ip, view);
-                ip += instr.width;
-
-                yield instr;
-            }
-        }
-    }
+    patch(f: MutableFunction): void;
 }
 
 const buffer = await readArrayBuffer("discord/bundle.hbc");
@@ -208,32 +28,74 @@ const patchDefs: PatchDefinition[] = [
                 [Opcode.PutNewOwnByIdShort, null, null, "get"],
             );
 
-            createClosure.args[2] = snippets.returnTrue;
+            createClosure.args[2] = f.patcher.createFunction([[Opcode.LoadConstTrue, 0], [Opcode.Ret, 0]], { paramCount: 0 });
         },
     },
 ];
 
-const patcher = new Patcher(module, patchDefs);
+const patcher = new ModulePatcher(module);
 
-interface Snippets {
-    /** `() => {}` */
-    noop: number;
-    /** `() => true` */
-    returnTrue: number;
-    /** `() => false` */
-    returnFalse: number;
+{
+    interface Patch extends PatchDefinition {
+        applied?: boolean;
+        stringIds: number[];
+    }
+
+    const patches: Patch[] = [];
+
+    for (const def of patchDefs) {
+        const patch = {
+            ...def,
+            stringIds: def.strings.map(str => patcher.findString(str)),
+        } as Patch;
+
+        patches.push(patch);
+    }
+
+    let totalInstrs = 0;
+    let applied = 0;
+
+    for (let id = 0; id < module.functions.length; id++) {
+        const func = module.functions[id];
+
+        const functionStrings = new Set<number>();
+        const functionCallees = new Set<number>();
+
+        for (const instr of func.bytecode.instructions()) {
+            instr.stringOperands()?.forEach(op => functionStrings.add(instr.getOperand(op)));
+            instr.functionOperands()?.forEach(op => functionCallees.add(instr.getOperand(op)));
+
+            totalInstrs++;
+        }
+
+        for (const patch of patches) {
+            if (patch.stringIds.every(id => functionStrings.has(id))) {
+                const code = patcher.getMutable(id);
+
+                patch.patch(code);
+                if (patch.applied) {
+                    console.warn("Fingerprint is not unique enough");
+                } else {
+                    patch.applied = true;
+                    applied++;
+                }
+            }
+        }
+
+        if (applied === patches.length) break;
+    }
+
+    console.log(`Scanned ${totalInstrs} instructions`);
+    console.log(`${applied} / ${patches.length} patches applied`);
 }
 
-const snippets: Snippets = mapValues(
-    {
-        noop: [[Opcode.LoadConstUndefined, 0], [Opcode.Ret, 0]],
-        returnTrue: [[Opcode.LoadConstTrue, 0], [Opcode.Ret, 0]],
-        returnFalse: [[Opcode.LoadConstFalse, 0], [Opcode.Ret, 0]],
-    } satisfies Record<string, RawInstruction[]>,
-    code => patcher.createFunction(encodeInstructions(code), { paramCount: 0 }),
-);
-
-patcher.applyPatches();
+patcher.modifyFunctions();
 console.timeEnd("patch");
+
+console.time("write");
+const patched = writeHermesModule(module);
+console.timeEnd("write");
+
+await writeFile("./discord/patched.hbc", patched);
 
 console.log(mapValues(process.memoryUsage(), formatSizeUnit));

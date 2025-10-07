@@ -11,6 +11,7 @@ const bigIntOps = {} as Record<string, number[]>;
 const functionOps = {} as Record<string, number[]>;
 const stringOps = {} as Record<string, number[]>;
 const builtins = [] as string[];
+const longOpcodes = {} as Record<string, string>;
 
 parseBytecode(await fetch(BYTECODE_URL).then(res => res.text()));
 parseBuiltins(await fetch(BUILTINS_URL).then(res => res.text()));
@@ -45,51 +46,57 @@ export const enum ArgType {
 /**
  * Numeric Hermes instruction opcodes.
  */
-export enum Opcode { // {{{
+export enum Opcode { //#region
 ${entries(opcodes).map(([op]) => `    ${op},`).join("\n")}
-} // }}}
+} //#endregion
+
+export type OpcodeMap<T> = Readonly<Partial<Record<Opcode, T>>>;
+
+export type OperandSet = OpcodeMap<readonly number[]>;
 
 /**
  * Argument type corresponding to {@link Opcode}.
  */
-export const opcodeTypes = { // {{{
+export const opcodeTypes = { //#region
 ${entries(opcodes).map(([op, args]) => `    [Opcode.${op}]: [${args.map(a => `ArgType.${a}`).join(", ")}],`).join("\n")}
-} as const; // }}}
-
-export type OperandMap = Readonly<Partial<Record<Opcode, readonly number[]>>>;
+} as const; //#endregion
 
 /**
  * Opcodes which have operands referring to the bigint table.
  */
-const BIGINT_OPERANDS = { // {{{
+const BIGINT_OPERANDS = { //#region
 ${entries(bigIntOps).map(([op, args]) => `    [Opcode.${op}]: [${args.join(", ")}],`).join("\n")}
-} as const; // }}}
-export type BigIntOperandMap = typeof BIGINT_OPERANDS;
-export const bigintOperands: OperandMap = BIGINT_OPERANDS;
+} as const; //#endregion
+export type BigIntOperands = typeof BIGINT_OPERANDS;
+export const bigintOperands: OperandSet = BIGINT_OPERANDS;
 
 /**
  * Opcodes which have operands referring to the function table.
  */
-const FUNCTION_OPERANDS = { // {{{
+const FUNCTION_OPERANDS = { //#region
 ${entries(functionOps).map(([op, args]) => `    [Opcode.${op}]: [${args.join(", ")}],`).join("\n")}
-} as const; // }}}
-export type FunctionOperandMap =   typeof FUNCTION_OPERANDS;
-export const functionOperands: OperandMap = FUNCTION_OPERANDS;
+} as const; //#endregion
+export type FunctionOperands = typeof FUNCTION_OPERANDS;
+export const functionOperands: OperandSet = FUNCTION_OPERANDS;
 
 /**
  * Opcodes which have operands referring to the string table.
  */
-const STRING_OPERANDS = { // {{{
+const STRING_OPERANDS = { //#region
 ${entries(stringOps).map(([op, args]) => `    [Opcode.${op}]: [${args.join(", ")}],`).join("\n")}
-} as const; // }}}
-export type StringOperandMap = typeof STRING_OPERANDS;
-export const stringOperands: OperandMap = STRING_OPERANDS;
+} as const; //#endregion
+export type StringOperands = typeof STRING_OPERANDS;
+export const stringOperands: OperandSet = STRING_OPERANDS;
 
-export enum Builtin { // {{{
+export enum Builtin { //#region
 ${builtins.map(x => `    "${x}",`).join("\n")}
-} // }}}
+} //#endregion
 
-// vim\: set foldenable:
+export const longOpcodes: OpcodeMap<Opcode> = { //#region
+${entries(longOpcodes).map(([short, long]) => `    [Opcode.${short}]: Opcode.${long},`).join("\n")}
+}; //#endregion
+
+// vim\: set foldenable foldmarker=//#region,//#endregion:
 `;
 
 writeFile("decompiler/src/opcodes.ts", src);
@@ -98,15 +105,21 @@ function parseBytecode(listing: string) {
     const OPCODE_RE = /^DEFINE_(\S+)_(\d)\((.*)\)$/gm;
     const OPERAND_RE = /^OPERAND_(\S+)_ID\((.*)\)$/gm;
 
+    const SHORT_RE = /Short$/;
+    const LONG_RE = /Long(Index)?$/;
+
     for (const [, dir, count, operands] of listing.matchAll(OPCODE_RE)) {
         const [op, ...args] = operands.split(/, */);
 
         if (dir == "OPCODE") {
             opcodes[op] = args;
+            if (SHORT_RE.test(op)) longOpcodes[op] = op.replace(SHORT_RE, "");
+            if (LONG_RE.test(op)) longOpcodes[op.replace(LONG_RE, "")] = op;
         } else if (dir == "JUMP") {
             const args = Array.from(Array(+count - 1), () => "Reg8");
             opcodes[op] = ["Addr8", ...args];
             opcodes[op + "Long"] = ["Addr32", ...args];
+            longOpcodes[op] = op + "Long";
         } else {
             throw Error(`Unknown definition: ${dir}`);
         }

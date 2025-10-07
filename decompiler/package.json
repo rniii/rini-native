@@ -4,6 +4,7 @@
     "exports": {
         ".": "./src/index.ts",
         "./bitfields": "./src/bitfields.ts",
+        "./mutable": "./src/mutable.ts",
         "./opcodes": "./src/opcodes.ts",
         "./types": "./src/types.ts"
     }

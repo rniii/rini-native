@@ -1,14 +1,14 @@
 import { mapValues } from "../../utils/index.ts";
 import {
     ArgType,
-    type BigIntOperandMap,
+    type BigIntOperands,
     bigintOperands,
-    type FunctionOperandMap,
+    type FunctionOperands,
     functionOperands,
     type Opcode,
     opcodeTypes,
-    type OperandMap,
-    type StringOperandMap,
+    type OperandSet,
+    type StringOperands,
     stringOperands,
 } from "./opcodes.ts";
 
@@ -33,7 +33,7 @@ const operandIndexes = mapValues(opcodeTypes, args => {
     });
 });
 
-const opcodeWidths = mapValues(opcodeTypes, args => (
+export const opcodeWidths = mapValues(opcodeTypes, args => (
     args.reduce((acc, arg) => acc + argWidths[arg], 1)
 ));
 
@@ -58,8 +58,8 @@ export type RawArguments<Op extends Opcode = Opcode> = Op extends unknown
         : never
     : never;
 
-type OperandMapLookup<
-    Map extends OperandMap,
+type OperandSetLookup<
+    Map extends OperandSet,
     Op extends Opcode,
     Index extends string,
     T,
@@ -67,13 +67,10 @@ type OperandMapLookup<
     ? Index extends `${Indices}` ? T : never
     : never;
 
-type TypedOperand<
-    Op extends Opcode,
-    Index extends string,
-> =
-    | OperandMapLookup<StringOperandMap, Op, Index, string>
-    | OperandMapLookup<BigIntOperandMap, Op, Index, bigint>
-    | OperandMapLookup<FunctionOperandMap, Op, Index, number>;
+type TypedOperand<Op extends Opcode, Index extends string> =
+    | OperandSetLookup<StringOperands, Op, Index, string>
+    | OperandSetLookup<BigIntOperands, Op, Index, bigint>
+    | OperandSetLookup<FunctionOperands, Op, Index, number>;
 
 export function isValidOpcode(opcode: number): opcode is Opcode {
     return opcode in opcodeTypes;

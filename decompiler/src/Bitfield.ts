@@ -14,9 +14,9 @@ export class Bitfield<K extends string> {
             if (bitSize > 32) throw Error(`Field "${name}" is larger than 32 bits`);
             if (bit % 32 + bitSize > 32) throw Error(`Field "${name}" is misaligned`);
 
-            let byte = (bit / 32 | 0) * 4;
-            let shift = bit % 32;
-            let mask = -1 >>> (32 - bitSize) | 0; // right shift instead of left so 32-bit mask doesn't overflow
+            const byte = (bit / 32 | 0) * 4;
+            const shift = bit % 32;
+            const mask = -1 >>> (32 - bitSize) | 0; // right shift instead of left so 32-bit mask doesn't overflow
             bit += bitSize;
 
             return [name, { byte, mask, shift }];

@@ -14,11 +14,13 @@ import type { RawInstruction } from "../decompiler/src/instruction.ts";
 import { readArrayBuffer } from "../test/common.ts";
 import { formatSizeUnit, mapValues } from "../utils/index.ts";
 
-type OperandsQuery<Op extends Opcode> = ParsedArguments<Op> extends infer ParsedArgs extends readonly any[] ? {
-        [Index in keyof ParsedArgs]: ParsedArgs[Index] | null;
-    }
-    : never;
+type OperandsQuery<Op extends Opcode> =
+    ParsedArguments<Op> extends infer ParsedArgs extends ReadonlyArray<any>
+        ? { [Index in keyof ParsedArgs]: ParsedArgs[Index] | null }
+        : never;
+
 type RawOperandsQuery = (number | null)[];
+
 type InstructionQuery<Op extends Opcode = Opcode> = Op extends unknown ? [Op, ...OperandsQuery<Op>] : never;
 
 type ContiguousMatch<Q extends InstructionQuery[]> = {

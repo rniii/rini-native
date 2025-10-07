@@ -17,7 +17,7 @@ export const Color = {
     LightPurple: ansiColor(95),
     LightCyan: ansiColor(96),
     Reset: ansiColor(),
-}
+};
 
 const enum GutterTileType {
     EMPTY = 0,
@@ -180,7 +180,7 @@ export function drawGutter(length: number, pointers: Pointer[], opts: GutterOpti
     const colors: Record<number, string> = {};
 
     function getNextColor() {
-        let color = colorPool.shift()!;
+        const color = colorPool.shift()!;
         colorPool.push(color);
         return color;
     }
@@ -213,6 +213,6 @@ export function drawGutter(length: number, pointers: Pointer[], opts: GutterOpti
     }
 
     return transpose(lanes).map((line, lineIdx) =>
-        line.map((tile) => drawTile(tile)).toReversed().join("") + drawLineEnd(lineIdx)
+        line.map(tile => drawTile(tile)).toReversed().join("") + drawLineEnd(lineIdx),
     );
 }

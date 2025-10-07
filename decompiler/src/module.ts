@@ -287,7 +287,7 @@ export function segmentModule(header: Header) {
         cjsModuleTable: header.cjsModuleCount * offsetLengthPair.byteSize,
         functionSourceTable: header.functionSourceCount * functionSourceEntry.byteSize,
         bytecodeStart: 0,
-    }, (size) => {
+    }, size => {
         const offset = i;
         i += padSize(size);
         return [offset, size];

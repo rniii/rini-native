@@ -4,17 +4,21 @@
     "scripts": {
         "dev": "pnpm -C explorer exec vite",
         "test": "node ./test/index.ts",
-        "lint": "dprint check",
-        "lint:fix": "dprint fmt",
+        "lint": "eslint",
         "start": "node ./src/patcher.ts",
         "extract": "node ./scripts/extract.ts",
         "disasm": "node ./scripts/disasm.ts"
     },
     "devDependencies": {
+        "@eslint/js": "^9.37.0",
+        "@stylistic/eslint-plugin": "^5.4.0",
         "@types/node": "^24.0.15",
-        "dprint": "^0.50.1",
         "esbuild": "^0.25.8",
-        "fflate": "^0.8.2"
+        "eslint": "^9.37.0",
+        "eslint-plugin-simple-import-sort": "^12.1.1",
+        "eslint-plugin-unused-imports": "^4.2.0",
+        "fflate": "^0.8.2",
+        "typescript-eslint": "^8.46.0"
     },
     "dependencies": {
         "decompiler": "workspace:^",

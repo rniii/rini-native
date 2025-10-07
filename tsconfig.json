@@ -1,12 +1,12 @@
 {
-  "compilerOptions": {
-    "allowImportingTsExtensions": true,
-    "strict": true,
-    "verbatimModuleSyntax": true,
-    "jsx": "preserve",
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "noEmit": true,
-    "target": "ESNext"
-  }
+    "compilerOptions": {
+        "allowImportingTsExtensions": true,
+        "strict": true,
+        "verbatimModuleSyntax": true,
+        "jsx": "preserve",
+        "module": "nodenext",
+        "moduleResolution": "nodenext",
+        "noEmit": true,
+        "target": "ESNext"
+    }
 }

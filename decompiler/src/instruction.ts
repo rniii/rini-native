@@ -37,23 +37,25 @@ const opcodeWidths = mapValues(opcodeTypes, args => (
     args.reduce((acc, arg) => acc + argWidths[arg], 1)
 ));
 
-export type ParsedInstruction<Op extends Opcode = Opcode> = Op extends unknown ? [Op, ...ParsedArguments<Op>]
+export type ParsedInstruction<Op extends Opcode = Opcode> = Op extends unknown
+    ? [Op, ...ParsedArguments<Op>]
     : never;
 
 export type ParsedArguments<Op extends Opcode = Opcode> = Op extends unknown
     ? typeof opcodeTypes[Op] extends infer Args extends readonly ArgType[] ? {
-            [I in keyof Args]: TypedOperand<Op, I & string> extends infer T ? ([T] extends [never] ? number : T)
-                : never;
-        }
-    : never
-    : never;
+        [I in keyof Args]: TypedOperand<Op, I & string> extends infer T
+            ? ([T] extends [never] ? number : T)
+            : never;
+    } : never : never;
 
-export type RawInstruction<Op extends Opcode = Opcode> = Op extends unknown ? [Op, ...RawArguments<Op>]
+export type RawInstruction<Op extends Opcode = Opcode> = Op extends unknown
+    ? [Op, ...RawArguments<Op>]
     : never;
 
 export type RawArguments<Op extends Opcode = Opcode> = Op extends unknown
-    ? typeof opcodeTypes[Op] extends infer Args ? { [I in keyof Args]: number }
-    : never
+    ? typeof opcodeTypes[Op] extends infer Args
+        ? { [I in keyof Args]: number }
+        : never
     : never;
 
 type OperandMapLookup<
@@ -61,8 +63,8 @@ type OperandMapLookup<
     Op extends Opcode,
     Index extends string,
     T,
-> = Map extends { [K in Op]: readonly (infer Indices extends number)[] } ? Index extends `${Indices}` ? T
-    : never
+> = Map extends { [K in Op]: readonly (infer Indices extends number)[] }
+    ? Index extends `${Indices}` ? T : never
     : never;
 
 type TypedOperand<

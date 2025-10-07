@@ -4,6 +4,8 @@
 import type util from "util";
 import { inspectCustom } from "../../utils/index.ts";
 
+// hack because otherwise you get Rope<"literal"> and can't do anything with it
+// eslint-disable-next-line @typescript-eslint/no-wrapper-object-types
 type Sequence = String | NodeJS.TypedArray;
 
 export abstract class Rope<S extends Sequence> {

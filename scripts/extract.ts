@@ -20,7 +20,7 @@ const ANDROID_BUNDLE = "assets/index.android.bundle";
 
 unzip(
     readFileSync("discord/base.apk"),
-    { filter: (file) => file.name === ANDROID_BUNDLE },
+    { filter: file => file.name === ANDROID_BUNDLE },
     (err, data) => {
         if (err) throw err;
 

@@ -154,19 +154,17 @@ export class MutableInstruction<Op extends Opcode> {
         this.width = instr.width;
         this.args = new Proxy([...instr.operands()], {
             set: (t, key, val, recv) => {
-                if (typeof key == "string" && +key && val !== this.args[+key]) this._updateBytecode();
+                const dirty = typeof key == "string" && +key && val !== t[+key];
+                const ok = Reflect.set(t, key, val, recv);
 
-                return Reflect.set(t, key, val, recv);
+                if (dirty) this._updateBytecode();
+
+                return ok;
             },
         }) as any;
     }
 
     _updateBytecode(): void {
-        this.func._markDirty();
-
-        const start = this.ip;
-        const end = start + this.width;
-
         const bytes = new Uint8Array(opcodeWidths[this.opcode]);
         bytes[0] = this.opcode;
 
@@ -183,6 +181,7 @@ export class MutableInstruction<Op extends Opcode> {
             return this._updateBytecode();
         }
 
-        this.func.bytecode = this.func.bytecode.replace(start, end, Rope.from(bytes));
+        this.func.bytecode = this.func.bytecode.replace(this.ip, this.ip + this.width, Rope.from(bytes));
+        this.func._markDirty();
     }
 }

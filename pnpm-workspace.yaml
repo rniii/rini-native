@@ -1,6 +1,5 @@
 packages:
   - decompiler/
-  - explorer/
 
 onlyBuiltDependencies:
   - dprint

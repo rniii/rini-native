@@ -2,7 +2,6 @@
     "type": "module",
     "license": "AGPL-3.0-only",
     "scripts": {
-        "dev": "pnpm -C explorer exec vite",
         "test": "node ./test/index.ts",
         "lint": "eslint",
         "start": "node ./src/patcher.ts",
@@ -21,7 +20,6 @@
         "typescript-eslint": "^8.46.0"
     },
     "dependencies": {
-        "decompiler": "workspace:^",
-        "hermeslib": "link:hermeslib"
+        "decompiler": "workspace:^"
     }
 }

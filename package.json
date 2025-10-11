@@ -1,6 +1,9 @@
 {
     "type": "module",
     "license": "AGPL-3.0-only",
+    "imports": {
+        "#api/*.ts": "./src/api/*.ts"
+    },
     "scripts": {
         "test": "node ./test/index.ts",
         "lint": "eslint",

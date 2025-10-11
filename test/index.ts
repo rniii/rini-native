@@ -1,5 +1,4 @@
-import { parseHermesModule } from "decompiler";
-import { writeHermesModule } from "../decompiler/src/moduleWriter.ts";
+import { parseHermesModule, writeHermesModule } from "decompiler";
 import { formatSizeUnit, mapValues } from "../utils/index.ts";
 import { readArrayBuffer } from "./common.ts";
 import { measureProfile } from "./profiling.ts";

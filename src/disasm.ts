@@ -1,5 +1,6 @@
 import { ArgType, Builtin, Opcode, opcodeTypes } from "decompiler/opcodes";
-import { HermesModule, Instruction, ModuleFunction, type Literal } from "decompiler/types";
+import { HermesModule, Instruction, type Literal, ModuleFunction } from "decompiler/types";
+
 import { parseLiterals } from "../decompiler/src/literalParser.ts";
 import { Color as C, drawGutter } from "./formatting.ts";
 
@@ -130,7 +131,7 @@ function formatHex(value: number, bytes = 4) {
 class IllegalInstruction extends Error {
     override name = "IllegalInstruction";
 
-    constructor(public func: ModuleFunction, public instruction: Instruction, cause: string | Error) {
+    constructor(public func: ModuleFunction, public instruction: Instruction, cause?: string | Error) {
         const detail = `${Opcode[instruction.opcode]} ${JSON.stringify([...instruction.operands()])}`;
 
         super(`Illegal instruction: ${detail}`, { cause });

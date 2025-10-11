@@ -1,10 +1,11 @@
 import { parseHermesModule } from "decompiler";
+import { ModulePatcher, MutableFunction } from "decompiler/mutable";
 import { Opcode } from "decompiler/opcodes";
+import { writeFile } from "fs/promises";
+
+import { writeHermesModule } from "../decompiler/src/moduleWriter.ts";
 import { readArrayBuffer } from "../test/common.ts";
 import { formatSizeUnit, mapValues } from "../utils/index.ts";
-import { ModulePatcher, MutableFunction } from "decompiler/mutable";
-import { writeHermesModule } from "../decompiler/src/moduleWriter.ts";
-import { writeFile } from "fs/promises";
 
 export interface PatchDefinition {
     strings: string[];
@@ -28,7 +29,10 @@ const patchDefs: PatchDefinition[] = [
                 [Opcode.PutNewOwnByIdShort, null, null, "get"],
             );
 
-            createClosure.args[2] = f.patcher.createFunction([[Opcode.LoadConstTrue, 0], [Opcode.Ret, 0]], { paramCount: 0 });
+            createClosure.args[2] = f.patcher.createFunction([
+                [Opcode.LoadConstTrue, 0],
+                [Opcode.Ret, 0],
+            ], { paramCount: 0 });
         },
     },
 ];

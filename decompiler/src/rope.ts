@@ -2,6 +2,7 @@
 // <https://www.cs.tufts.edu/comp/150FP/archive/hans-boehm/ropes.pdf>
 
 import type util from "util";
+
 import { inspectCustom } from "../../utils/index.ts";
 
 // hack because otherwise you get Rope<"literal"> and can't do anything with it

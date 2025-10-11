@@ -1,4 +1,5 @@
 import { writeFile } from "fs/promises";
+
 import { entries } from "../utils/index.ts";
 
 // TODO: the bytecode version matches, but I don't know which RN version discord uses

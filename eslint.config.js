@@ -1,13 +1,17 @@
 import js from "@eslint/js";
-import ts from "typescript-eslint";
 import stylistic from "@stylistic/eslint-plugin";
 import { defineConfig } from "eslint/config";
+import importSort from "eslint-plugin-simple-import-sort";
+import unusedImports from "eslint-plugin-unused-imports";
+import ts from "typescript-eslint";
 
 export default defineConfig({
-    files: ["src/*", "scripts/*", "decompiler/src/*"],
+    files: ["src/**/*.ts", "scripts/**/*.ts", "decompiler/src/**/*.ts", "eslint.config.js"],
 
     plugins: {
         "@stylistic": stylistic,
+        "unused-imports": unusedImports,
+        "simple-import-sort": importSort,
     },
     extends: [
         js.configs.recommended,
@@ -26,10 +30,14 @@ export default defineConfig({
         "@stylistic/operator-linebreak": ["error", "before", { overrides: { "=": "after" } }],
         "@stylistic/spaced-comment": ["error", "always", { markers: ["!", "#region", "#endregion"] }],
 
+        "simple-import-sort/imports": "error",
+        "simple-import-sort/exports": "error",
+        "unused-imports/no-unused-imports": "error",
+
         "@typescript-eslint/no-explicit-any": "off",
 
         "no-useless-escape": "off",
         "no-var": "off",
         "prefer-const": ["error", { destructuring: "all" }],
-    }
+    },
 });

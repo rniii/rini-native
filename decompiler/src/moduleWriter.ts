@@ -9,7 +9,7 @@ import {
     stringTableEntry,
 } from "./bitfields.ts";
 import { type Header, HERMES_SIGNATURE, HERMES_VERSION, segmentModule } from "./module.ts";
-import { ModuleBytecode, type HermesModule } from "./types.ts";
+import { type HermesModule, ModuleBytecode } from "./types.ts";
 
 export function writeHermesModule(module: HermesModule) {
     const header: Header = {

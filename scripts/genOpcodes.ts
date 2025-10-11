@@ -13,6 +13,7 @@ const functionOps = {} as Record<string, number[]>;
 const stringOps = {} as Record<string, number[]>;
 const builtins = [] as string[];
 const longOpcodes = {} as Record<string, string>;
+const canonicalOpcodes = {} as Record<string, string>;
 
 parseBytecode(await fetch(BYTECODE_URL).then(res => res.text()));
 parseBuiltins(await fetch(BUILTINS_URL).then(res => res.text()));
@@ -93,8 +94,18 @@ export enum Builtin { //#region
 ${builtins.map(x => `    "${x}",`).join("\n")}
 } //#endregion
 
+/**
+ * Longer version of opcodes, allowing higher values in their arguments.
+ */
 export const longOpcodes: OpcodeMap<Opcode> = { //#region
 ${entries(longOpcodes).map(([short, long]) => `    [Opcode.${short}]: Opcode.${long},`).join("\n")}
+}; //#endregion
+
+/**
+ * Normalised opcodes without a Short or Long suffix.
+ */
+export const canonicalOpcodes: Readonly<Record<Opcode, Opcode>> = { //#region
+${entries(canonicalOpcodes).map(([opcode, canon]) => `    [Opcode.${opcode}]: Opcode.${canon},`).join("\n")}
 }; //#endregion
 
 // vim\: set foldenable foldmarker=//#region,//#endregion:
@@ -114,16 +125,29 @@ function parseBytecode(listing: string) {
 
         if (dir == "OPCODE") {
             opcodes[op] = args;
-            if (SHORT_RE.test(op)) longOpcodes[op] = op.replace(SHORT_RE, "");
-            if (LONG_RE.test(op)) longOpcodes[op.replace(LONG_RE, "")] = op;
         } else if (dir == "JUMP") {
             const args = Array.from(Array(+count - 1), () => "Reg8");
             opcodes[op] = ["Addr8", ...args];
             opcodes[op + "Long"] = ["Addr32", ...args];
-            longOpcodes[op] = op + "Long";
         } else {
             throw Error(`Unknown definition: ${dir}`);
         }
+    }
+
+    for (const op of Object.keys(opcodes)) {
+        let canon = op;
+
+        if (SHORT_RE.test(op)) {
+            canon = op.replace(SHORT_RE, "");
+
+            longOpcodes[op] = canon;
+        } else if (LONG_RE.test(op)) {
+            canon = op.replace(LONG_RE, "");
+
+            longOpcodes[canon] = op;
+        }
+
+        canonicalOpcodes[op] = canon;
     }
 
     for (const [, dir, operands] of listing.matchAll(OPERAND_RE)) {

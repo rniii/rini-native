@@ -1,6 +1,6 @@
 import { bisect } from "../../utils/index.ts";
 import { type StringTableEntry, stringTableEntry } from "./bitfields.ts";
-import { ModuleBytecode, ModuleFunction } from "./function.ts";
+import { type DebugOffsets, type ExceptionHandler, ModuleBytecode, type ModuleFunction, type PartialFunctionHeader } from "./function.ts";
 import { Instruction } from "./instruction.ts";
 import type { HermesModule, UniqueString } from "./module.ts";
 import { Rope } from "./rope.ts";
@@ -73,7 +73,7 @@ export class ModulePatcher {
     }
 
     _setDirty(func: MutableFunction) {
-        this.dirtyFunctions.set(func.inner.id, func);
+        this.dirtyFunctions.set(func.id, func);
     }
 
     modifyFunctions() {
@@ -88,16 +88,21 @@ export class ModulePatcher {
                 offset += leaf.byteLength;
             };
 
-            const bytecode = new ModuleBytecode(bytes, func.inner.bytecode.jumpTables);
+            const bytecode = new ModuleBytecode(bytes, func.jumpTables);
 
-            func.inner.bytecode = bytecode;
+            module.functions[func.id] = {
+                id: func.id,
+                header: func.header,
+                bytecode,
+                exceptionHandlers: func.exceptionHandlers,
+                debugOffsets: func.debugOffsets,
+            };
             module.bytecode.push(bytecode);
         }
 
         for (const entry of this.newStrEntries) {
             if (entry.length >= 1 << stringTableEntry.fields.length
                 || entry.offset >= 1 << stringTableEntry.fields.offset) {
-
                 entry.length = 0xff;
                 entry.offset = module.strings.overflowEntries.length;
                 module.strings.overflowEntries.push({ length: entry.length, offset: entry.offset });
@@ -118,10 +123,20 @@ export class ModulePatcher {
 }
 
 export class MutableFunction {
+    id: number;
+    header: PartialFunctionHeader;
     bytecode: Rope<Uint8Array>;
+    jumpTables?: Uint8Array;
+    exceptionHandlers?: ExceptionHandler[];
+    debugOffsets?: DebugOffsets;
 
-    constructor(public patcher: ModulePatcher, public inner: ModuleFunction) {
+    constructor(public patcher: ModulePatcher, inner: ModuleFunction) {
+        this.id = inner.id;
+        this.header = { ...inner.header };
         this.bytecode = Rope.from(inner.bytecode.bytes);
+        this.jumpTables = inner.bytecode.jumpTables;
+        this.exceptionHandlers = inner.exceptionHandlers?.map(e => [...e]);
+        this.debugOffsets = inner.debugOffsets && [...inner.debugOffsets];
     }
 
     replace(start: number, end: number, bytes: Uint8Array) {

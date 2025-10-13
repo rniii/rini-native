@@ -1,5 +1,5 @@
 import { ArgType, Builtin, Opcode, opcodeTypes } from "decompiler/opcodes";
-import { HermesModule, Instruction, type Literal, ModuleFunction } from "decompiler/types";
+import { HermesModule, Instruction, type Literal, type ModuleFunction } from "decompiler/types";
 
 import { parseLiterals } from "../decompiler/src/literalParser.ts";
 import { Color as C, drawGutter } from "./formatting.ts";

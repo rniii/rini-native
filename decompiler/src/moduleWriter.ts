@@ -58,7 +58,7 @@ export function writeHermesModule(module: HermesModule) {
         offset: bcMap.get(func.bytecode)!,
         bytecodeSizeInBytes: func.bytecode.bytes.byteLength,
         infoOffset: 0,
-        hasExceptionHandler: +!!func.exceptionHandlers.length,
+        hasExceptionHandler: +!!func.exceptionHandlers,
         hasDebugInfo: +!!func.debugOffsets,
         overflowed: 0,
     }));
@@ -75,7 +75,7 @@ export function writeHermesModule(module: HermesModule) {
         smallHeaders.push(small);
 
         if (smallHeaders[i].overflowed) offset += largeFunctionHeader.byteSize;
-        if (func.exceptionHandlers.length) offset += 4 + func.exceptionHandlers.length * 12;
+        if (func.exceptionHandlers) offset += 4 + func.exceptionHandlers.length * 12;
         if (func.debugOffsets) offset += 12;
     }
 
@@ -150,7 +150,7 @@ export function writeHermesModule(module: HermesModule) {
 
             offset += largeFunctionHeader.byteSize;
         }
-        if (func.exceptionHandlers.length) {
+        if (func.exceptionHandlers) {
             view.setUint32(offset, func.exceptionHandlers.length, true);
             offset += 4;
 

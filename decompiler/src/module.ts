@@ -11,7 +11,7 @@ import {
     type StringTableEntry,
     stringTableEntry,
 } from "./bitfields.ts";
-import { ModuleBytecode, ModuleFunction } from "./function.ts";
+import { ModuleBytecode, type ModuleFunction } from "./function.ts";
 
 // https://github.com/facebook/hermes/blob/v0.13.0/include/hermes/BCGen/HBC/BytecodeVersion.h#L23
 export const HERMES_VERSION = 96;
@@ -203,7 +203,7 @@ function parseFunctions(segments: Record<Segment, Uint8Array>, buffer: ArrayBuff
 
     // deduplicate bytecode
     const bytecodes = new Map<number, ModuleBytecode>();
-    const functions = functionHeaders.map((header, i) => {
+    const functions = functionHeaders.map((header, id) => {
         let bytecode = bytecodes.get(header.offset);
 
         if (!bytecode) {
@@ -227,7 +227,11 @@ function parseFunctions(segments: Record<Segment, Uint8Array>, buffer: ArrayBuff
             bytecodes.set(header.offset, bytecode);
         }
 
-        const func = new ModuleFunction(i, header, bytecode);
+        const func: ModuleFunction = {
+            id, header, bytecode,
+            exceptionHandlers: undefined,
+            debugOffsets: undefined,
+        };
 
         let offset = header.infoOffset;
         if (header.overflowed) offset += largeFunctionHeader.byteSize;
@@ -236,6 +240,7 @@ function parseFunctions(segments: Record<Segment, Uint8Array>, buffer: ArrayBuff
             const count = view.getUint32(offset, true);
             offset += 4;
 
+            func.exceptionHandlers = [];
             for (let i = 0; i < count; ++i) {
                 func.exceptionHandlers.push([
                     view.getUint32(offset, true),

@@ -49,13 +49,10 @@ export class ModuleBytecode {
     }
 }
 
-export class ModuleFunction {
-    debugOffsets?: DebugOffsets;
-    exceptionHandlers: ExceptionHandler[] = [];
-
-    constructor(
-        public id: number,
-        public header: PartialFunctionHeader,
-        public bytecode: ModuleBytecode,
-    ) {}
+export interface ModuleFunction {
+    id: number;
+    header: PartialFunctionHeader;
+    bytecode: ModuleBytecode;
+    exceptionHandlers: ExceptionHandler[] | undefined;
+    debugOffsets: DebugOffsets | undefined;
 }

@@ -2,8 +2,8 @@ import { parseHermesModule } from "decompiler";
 import { appendFile, open } from "fs/promises";
 
 import { disassemble } from "../src/disasm.ts";
-import { readArrayBuffer } from "../test/common.ts";
 import { instrument } from "../test/profiling.ts";
+import { readArrayBuffer } from "../utils/node.ts";
 
 const disasm = instrument("disassemble", disassemble);
 

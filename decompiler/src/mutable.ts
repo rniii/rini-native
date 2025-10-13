@@ -15,13 +15,13 @@ export class ModulePatcher {
     newStrStorage: Rope<Uint8Array>;
     newStrEntries: StringTableEntry[];
 
-    constructor(public module: HermesModule) {
+    constructor(public original: HermesModule) {
         this.dirtyFunctions = new Map();
         this.stringIndex = [];
-        this.newStrStorage = Rope.from(this.module.strings.storage);
+        this.newStrStorage = Rope.from(this.original.strings.storage);
         this.newStrEntries = [];
 
-        for (const entry of module.strings) {
+        for (const entry of original.strings) {
             const length = entry.contents.length;
             const bIndex = bisect(this.stringIndex, length, b => b[0].contents.length);
 
@@ -69,7 +69,7 @@ export class ModulePatcher {
 
     getMutable(id: number): MutableFunction {
         return this.dirtyFunctions.get(id)
-            ?? new MutableFunction(this, this.module.functions[id]);
+            ?? new MutableFunction(this, this.original.functions[id]);
     }
 
     _setDirty(func: MutableFunction) {
@@ -77,7 +77,7 @@ export class ModulePatcher {
     }
 
     modifyFunctions() {
-        const module = this.module;
+        const module = this.original;
 
         for (const func of this.dirtyFunctions.values()) {
             const bytes = new Uint8Array(func.bytecode.length);
@@ -130,7 +130,7 @@ export class MutableFunction {
     exceptionHandlers?: ExceptionHandler[];
     debugOffsets?: DebugOffsets;
 
-    constructor(public patcher: ModulePatcher, inner: ModuleFunction) {
+    constructor(public module: ModulePatcher, inner: ModuleFunction) {
         this.id = inner.id;
         this.header = { ...inner.header };
         this.bytecode = Rope.from(inner.bytecode.bytes);
@@ -141,17 +141,17 @@ export class MutableFunction {
 
     replace(start: number, end: number, bytes: Uint8Array) {
         this.bytecode = this.bytecode.replace(start, end, Rope.from(bytes));
-        this.patcher._setDirty(this);
+        this.module._setDirty(this);
     }
 
     remove(start: number, end: number) {
         this.bytecode = this.bytecode.remove(start, end);
-        this.patcher._setDirty(this);
+        this.module._setDirty(this);
     }
 
     insert(index: number, bytes: Uint8Array) {
         this.bytecode = this.bytecode.insert(index, Rope.from(bytes));
-        this.patcher._setDirty(this);
+        this.module._setDirty(this);
     }
 
     *iterate(start?: number, end?: number) {

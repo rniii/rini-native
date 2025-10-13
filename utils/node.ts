@@ -7,6 +7,5 @@ export async function readArrayBuffer(path: string) {
     const buffer = new ArrayBuffer(stat.size);
 
     await file.read(new Uint8Array(buffer));
-
     return buffer;
 }

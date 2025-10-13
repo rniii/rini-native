@@ -1,7 +1,7 @@
 import { parseHermesModule, writeHermesModule } from "decompiler";
 import { formatSizeUnit, mapValues } from "../utils/index.ts";
-import { readArrayBuffer } from "./common.ts";
 import { measureProfile } from "./profiling.ts";
+import { readArrayBuffer } from "../utils/node.ts";
 
 await using profile = await measureProfile("./test/profile.cpuprofile");
 void profile;

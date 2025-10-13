@@ -29,6 +29,7 @@ export default defineConfig({
         "@stylistic/generator-star-spacing": ["error", { before: true, after: false }],
         "@stylistic/operator-linebreak": ["error", "before", { overrides: { "=": "after" } }],
         "@stylistic/spaced-comment": ["error", "always", { markers: ["!", "#region", "#endregion"] }],
+        "@stylistic/no-mixed-operators": "off",
 
         "simple-import-sort/imports": "error",
         "simple-import-sort/exports": "error",

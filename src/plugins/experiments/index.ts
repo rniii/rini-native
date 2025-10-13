@@ -9,7 +9,7 @@ export default definePlugin({
     patches: [
         {
             strings: ["Object", "defineProperties", "isDeveloper"],
-            patch: {
+            patches: {
                 identifier: "get",
                 replace: [
                     [Opcode.LoadConstTrue, 0],

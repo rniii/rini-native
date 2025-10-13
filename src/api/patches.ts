@@ -1,23 +1,35 @@
 import { encodeInstructions } from "decompiler";
-import type { MutableFunction } from "decompiler/mutable";
-import { canonicalOpcodes, Opcode } from "decompiler/opcodes";
+import type { ModulePatcher, MutableFunction } from "decompiler/mutable";
+import { canonicalOpcodes, type FunctionOperands, functionOperands, Opcode, type StringOperands, stringOperands } from "decompiler/opcodes";
 import { Instruction, type ParsedArguments, type RawArguments, type RawInstruction } from "decompiler/types";
 
 export interface PatchFingerprint {
     identifier?: string;
-    strings: string[];
+    strings?: string[];
     opcodes?: Opcode[];
 }
 
 export type PatchAction =
-    | { patch: Partial<PatchDef> }
+    | { patches: PatchDef | PatchDef[] }
     | { replace: RawInstruction[] }
     | { apply(f: PatchContext): void };
 
 export type PatchDef = PatchFingerprint & PatchAction;
 
 export class PatchContext {
-    constructor(public target: MutableFunction) {}
+    module: ModulePatcher;
+
+    constructor(public target: MutableFunction) {
+        this.module = target.module;
+    }
+
+    getClosure(instr: MatchedInstruction<keyof FunctionOperands>) {
+        return this.module.getMutable(instr.args[functionOperands[instr.opcode]![0]]);
+    }
+
+    getStrings(instr: MatchedInstruction<keyof StringOperands>) {
+        return stringOperands[instr.opcode]!.map(op => this.module.original.strings.get(instr.args[op]));
+    }
 
     match<const Q extends InstructionQuery[]>(...query: Q): MatchResults<Q> {
         return this.matchBetween(null, null, query);
@@ -33,7 +45,13 @@ export class PatchContext {
         query: Q,
     ): MatchResults<Q> {
         const normalisedQuery = query.map(([op, ...args]) => [canonicalOpcodes[op], ...args.map(value => {
-            if (typeof value === "string") throw "todo";
+            if (typeof value === "string") {
+                const id = this.module.findPartialString(value)?.id;
+                if (id == null) throw Error(`Failed to find string ${JSON.stringify(value)}`);
+
+                return id;
+            }
+
             if (typeof value === "bigint") throw "todo";
 
             return value;
@@ -73,6 +91,18 @@ export class PatchContext {
         if (startInstr.ip > endInstr.ip) return;
 
         this.target.replace(startInstr.ip, endInstr.ip + endInstr.width, encodeInstructions(newInstrs));
+    }
+
+    replace(newInstrs: RawInstruction[]) {
+        this.target.replace(0, this.target.bytecode.length, encodeInstructions(newInstrs));
+    }
+
+    insertAfter(instr: MatchedInstruction, newInstrs: RawInstruction[]) {
+        this.target.insert(instr.ip + instr.width, encodeInstructions(newInstrs));
+    }
+
+    insertBefore(instr: MatchedInstruction, newInstrs: RawInstruction[]) {
+        this.target.insert(instr.ip, encodeInstructions(newInstrs));
     }
 }
 

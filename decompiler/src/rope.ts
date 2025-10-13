@@ -48,10 +48,6 @@ export abstract class Rope<S extends Sequence> {
         return left.concat(right);
     }
 
-    append(value: Rope<S>) {
-        return this.concat(value);
-    }
-
     [inspectCustom](_depth: number, opts: util.InspectOptionsStylized, inspect: typeof util.inspect) {
         let repr = "";
 

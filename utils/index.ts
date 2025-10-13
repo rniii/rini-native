@@ -14,15 +14,14 @@ export function mapValues<K extends keyof any, V, W>(obj: { [key in K]?: V }, fu
     return fromEntries(entries(obj).map(([k, v]) => [k, func(v)]));
 }
 
-/** Perform a binary search for a given element, returning the rightmost index. */
-export function bisect<T>(arr: T[], value: T, key = (x: T) => x as any) {
+/** Perform a binary search for a given element, returning the leftmost index. */
+export function bisect<T>(arr: T[], value: any, key = (x: T) => x as any) {
     let lo = 0, hi = arr.length;
-    value = key(value);
 
     while (lo < hi) {
         const mid = (lo + hi) / 2 | 0;
 
-        if (key(arr[mid]) <= value) {
+        if (key(arr[mid]) < value) {
             lo = mid + 1;
         } else {
             hi = mid;
@@ -34,7 +33,7 @@ export function bisect<T>(arr: T[], value: T, key = (x: T) => x as any) {
 
 /** Insert an element into an array, keeping it sorted. */
 export function insort<T>(arr: T[], value: T, key = (x: T) => x as any) {
-    arr.splice(bisect(arr, value, key), 0, value);
+    arr.splice(bisect(arr, key(value), key), 0, value);
 }
 
 export function transpose<T>(matrix: T[][]): T[][] {

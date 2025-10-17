@@ -1,4 +1,4 @@
-import { encodeInstructions, HermesModule, Instruction, parseHermesModule, writeHermesModule } from "decompiler";
+import { Disassembler, encodeInstructions, HermesModule, Instruction, parseHermesModule, writeHermesModule } from "decompiler";
 import { ModulePatcher } from "decompiler/mutable";
 import type { Opcode } from "decompiler/opcodes";
 import type { ModuleFunction } from "decompiler/types";
@@ -21,10 +21,14 @@ await writeFile("./discord/patched.hbc", patched);
 console.log(mapValues(process.memoryUsage(), formatSizeUnit));
 
 function patchModule(module: HermesModule) {
+    const dis = new Disassembler(module);
     const patcher = new ModulePatcher(module);
     runPatches(plugins.flatMap(plugin => plugin.patches), module.functions);
 
-    console.log(patcher.dirtyFunctions);
+    for (const dirty of patcher.dirtyFunctions.values()) {
+        console.log(dis.diffMutable(dirty));
+    }
+
     patcher.modifyFunctions();
 
     return module;

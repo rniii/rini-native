@@ -1,3 +1,4 @@
+export { Disassembler } from "./disassembler.ts";
 export { encodeInstructions } from "./instruction.ts";
 export { Instruction, isValidOpcode } from "./instruction.ts";
 export { parseLiterals } from "./literalParser.ts";

@@ -1,8 +1,8 @@
 import { bisect } from "../../utils/index.ts";
 import { type StringTableEntry, stringTableEntry } from "./bitfields.ts";
-import { type DebugOffsets, type ExceptionHandler, ModuleBytecode, type ModuleFunction, type PartialFunctionHeader } from "./function.ts";
+import type { DebugOffsets, ExceptionHandler, ModuleBytecode, ModuleFunction, PartialFunctionHeader } from "./function.ts";
 import { Instruction } from "./instruction.ts";
-import type { HermesModule, UniqueString } from "./module.ts";
+import type { HermesModule } from "./module.ts";
 import { Rope } from "./rope.ts";
 
 const Utf8E = new TextEncoder();
@@ -11,7 +11,7 @@ export class ModulePatcher {
     dirtyFunctions: Map<number, MutableFunction>;
 
     /** Sorted array of buckets of strings with the same length */
-    stringIndex: UniqueString[][];
+    stringIndex: { index: number; value: string }[][];
     newStrStorage: Rope<Uint8Array>;
     newStrEntries: StringTableEntry[];
 
@@ -21,30 +21,30 @@ export class ModulePatcher {
         this.newStrStorage = Rope.from(this.original.strings.storage);
         this.newStrEntries = [];
 
-        for (const entry of original.strings) {
-            const length = entry.contents.length;
-            const bIndex = bisect(this.stringIndex, length, b => b[0].contents.length);
+        for (let index = 0; index < original.strings.length; index++) {
+            const value = original.strings.get(index);
+            const bIndex = bisect(this.stringIndex, value.length, b => b[0].value.length);
 
-            if (this.stringIndex[bIndex]?.[0].contents.length === length) {
-                this.stringIndex[bIndex].push(entry);
+            if (this.stringIndex[bIndex]?.[0].value.length === value.length) {
+                this.stringIndex[bIndex].push({ index, value });
             } else {
-                this.stringIndex.splice(bIndex, 0, [entry]);
+                this.stringIndex.splice(bIndex, 0, [{ index, value }]);
             }
         }
     }
 
     findString(str: string) {
-        const bIndex = bisect(this.stringIndex, str.length, b => b[0].contents.length);
+        const bIndex = bisect(this.stringIndex, str.length, b => b[0].value.length);
 
-        return this.stringIndex[bIndex]?.find(e => e.contents === str);
+        return this.stringIndex[bIndex]?.find(e => e.value === str);
     }
 
     findPartialString(str: string) {
-        const bIndex = bisect(this.stringIndex, str.length, b => b[0].contents.length);
+        const bIndex = bisect(this.stringIndex, str.length, b => b[0].value.length);
 
         for (let i = bIndex; i < this.stringIndex.length; i++) {
             for (const entry of this.stringIndex[i]) {
-                if (entry.contents.includes(str)) {
+                if (entry.value.includes(str)) {
                     return entry;
                 }
             }
@@ -88,7 +88,10 @@ export class ModulePatcher {
                 offset += leaf.byteLength;
             };
 
-            const bytecode = new ModuleBytecode(bytes, func.jumpTables);
+            const bytecode: ModuleBytecode = {
+                opcodes: bytes,
+                jumpTables: func.jumpTables,
+            };
 
             module.functions[func.id] = {
                 id: func.id,
@@ -133,7 +136,7 @@ export class MutableFunction {
     constructor(public module: ModulePatcher, inner: ModuleFunction) {
         this.id = inner.id;
         this.header = { ...inner.header };
-        this.bytecode = Rope.from(inner.bytecode.bytes);
+        this.bytecode = Rope.from(inner.bytecode.opcodes);
         this.jumpTables = inner.bytecode.jumpTables;
         this.exceptionHandlers = inner.exceptionHandlers?.map(e => [...e]);
         this.debugOffsets = inner.debugOffsets && [...inner.debugOffsets];
@@ -158,15 +161,7 @@ export class MutableFunction {
         const slice = this.bytecode.slice(start, end);
 
         for (const leaf of slice.leaves()) {
-            const view = new DataView(leaf.buffer, leaf.byteOffset, leaf.byteLength);
-
-            let ip = 0;
-            while (ip < leaf.byteLength) {
-                const instr = new Instruction(ip, view);
-                ip += instr.width;
-
-                yield instr;
-            }
+            yield* Instruction.iterate(leaf);
         }
     }
 }

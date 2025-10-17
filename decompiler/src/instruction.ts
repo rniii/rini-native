@@ -85,6 +85,18 @@ export class Instruction {
         this.width = opcodeWidths[this.opcode];
     }
 
+    static *iterate(bc: Uint8Array) {
+        const view = new DataView(bc.buffer, bc.byteOffset, bc.byteLength);
+
+        let ip = 0;
+        while (ip < bc.byteLength) {
+            const instr = new Instruction(ip, view);
+            ip += instr.width;
+
+            yield instr;
+        }
+    }
+
     getOperand(idx: number): number {
         const type = opcodeTypes[this.opcode][idx];
         const offset = operandIndexes[this.opcode][idx];

@@ -11,7 +11,7 @@ import {
     type StringTableEntry,
     stringTableEntry,
 } from "./bitfields.ts";
-import { ModuleBytecode, type ModuleFunction } from "./function.ts";
+import type { ModuleBytecode, ModuleFunction } from "./function.ts";
 
 // https://github.com/facebook/hermes/blob/v0.13.0/include/hermes/BCGen/HBC/BytecodeVersion.h#L23
 export const HERMES_VERSION = 96;
@@ -45,12 +45,10 @@ export abstract class DataTable<T> {
     }
 }
 
-export type UniqueString = { id: number; contents: string };
-
 const Utf8D = new TextDecoder("utf-8");
 const Utf16D = new TextDecoder("utf-16");
 
-export class StringTable extends DataTable<UniqueString> {
+export class StringTable extends DataTable<string> {
     declare entries: StringTableEntry[];
 
     constructor(
@@ -62,7 +60,7 @@ export class StringTable extends DataTable<UniqueString> {
         super(storage, entries);
     }
 
-    get(index: number): UniqueString {
+    get(index: number) {
         const entry = this.entries[index];
 
         const { isUtf16 } = entry;
@@ -72,12 +70,12 @@ export class StringTable extends DataTable<UniqueString> {
 
         const bytes = this.storage.subarray(offset, offset + length * (isUtf16 ? 2 : 1));
 
-        return { id: index, contents: isUtf16 ? Utf16D.decode(bytes) : Utf8D.decode(bytes) };
+        return isUtf16 ? Utf16D.decode(bytes) : Utf8D.decode(bytes);
     }
 }
 
 export class BigIntTable extends DataTable<bigint> {
-    get(index: number): bigint {
+    get(index: number) {
         const { offset, length } = this.entries[index];
 
         return toBigInt(this.storage.subarray(offset, offset + length));
@@ -207,7 +205,7 @@ function parseFunctions(segments: Record<Segment, Uint8Array>, buffer: ArrayBuff
         let bytecode = bytecodes.get(header.offset);
 
         if (!bytecode) {
-            const bytes = new Uint8Array(buffer, header.offset, header.bytecodeSizeInBytes);
+            const opcodes = new Uint8Array(buffer, header.offset, header.bytecodeSizeInBytes);
             const extraBytes = bytecodeLengths.get(header.offset)! - header.bytecodeSizeInBytes;
             let jumpTables;
 
@@ -223,7 +221,7 @@ function parseFunctions(segments: Record<Segment, Uint8Array>, buffer: ArrayBuff
                 }
             }
 
-            bytecode = new ModuleBytecode(bytes, jumpTables);
+            bytecode = { opcodes, jumpTables };
             bytecodes.set(header.offset, bytecode);
         }
 

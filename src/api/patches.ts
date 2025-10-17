@@ -1,7 +1,7 @@
-import { encodeInstructions } from "decompiler";
+import { encodeInstructions, Instruction } from "decompiler";
 import type { ModulePatcher, MutableFunction } from "decompiler/mutable";
 import { canonicalOpcodes, type FunctionOperands, functionOperands, Opcode, type StringOperands, stringOperands } from "decompiler/opcodes";
-import { Instruction, type ParsedArguments, type RawArguments, type RawInstruction } from "decompiler/types";
+import type { ParsedArguments, RawArguments, RawInstruction } from "decompiler/types";
 
 export interface PatchFingerprint {
     identifier?: string;
@@ -46,7 +46,7 @@ export class PatchContext {
     ): MatchResults<Q> {
         const normalisedQuery = query.map(([op, ...args]) => [canonicalOpcodes[op], ...args.map(value => {
             if (typeof value === "string") {
-                const id = this.module.findPartialString(value)?.id;
+                const id = this.module.findPartialString(value)?.index;
                 if (id == null) throw Error(`Failed to find string ${JSON.stringify(value)}`);
 
                 return id;

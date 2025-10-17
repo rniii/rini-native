@@ -1,4 +1,4 @@
-import type { StringTable } from "./types.ts";
+import type { StringTable } from "./module.ts";
 
 export type Literal = number | string | boolean | null;
 
@@ -47,15 +47,15 @@ export function parseLiterals(buffer: Uint8Array, offset: number, count: number,
                     offset += 8;
                     continue;
                 case TagType.LongString:
-                    literals.push(strings.get(view.getUint32(offset, true)).contents);
+                    literals.push(strings.get(view.getUint32(offset, true)));
                     offset += 4;
                     continue;
                 case TagType.ShortString:
-                    literals.push(strings.get(view.getUint16(offset, true)).contents);
+                    literals.push(strings.get(view.getUint16(offset, true)));
                     offset += 2;
                     continue;
                 case TagType.ByteString:
-                    literals.push(strings.get(view.getUint8(offset)).contents);
+                    literals.push(strings.get(view.getUint8(offset)));
                     offset += 1;
                     continue;
                 case TagType.Integer:

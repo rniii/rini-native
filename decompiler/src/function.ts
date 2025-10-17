@@ -1,5 +1,3 @@
-import { Instruction } from "./instruction.ts";
-
 export type ExceptionHandler = [number, number, number];
 export type DebugOffsets = [number, number, number];
 
@@ -29,24 +27,9 @@ export interface PartialFunctionHeader {
     strictMode: number;
 }
 
-export class ModuleBytecode {
-    constructor(
-        public bytes: Uint8Array,
-        public jumpTables?: Uint8Array,
-    ) {}
-
-    *instructions() {
-        const bc = this.bytes;
-        const view = new DataView(bc.buffer, bc.byteOffset, bc.byteLength);
-
-        let ip = 0;
-        while (ip < bc.byteLength) {
-            const instr = new Instruction(ip, view);
-            ip += instr.width;
-
-            yield instr;
-        }
-    }
+export interface ModuleBytecode {
+    opcodes: Uint8Array;
+    jumpTables?: Uint8Array;
 }
 
 export interface ModuleFunction {

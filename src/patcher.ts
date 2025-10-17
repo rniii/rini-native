@@ -1,7 +1,7 @@
-import { encodeInstructions, parseHermesModule, writeHermesModule } from "decompiler";
+import { encodeInstructions, HermesModule, Instruction, parseHermesModule, writeHermesModule } from "decompiler";
 import { ModulePatcher } from "decompiler/mutable";
 import type { Opcode } from "decompiler/opcodes";
-import type { HermesModule, ModuleFunction } from "decompiler/types";
+import type { ModuleFunction } from "decompiler/types";
 import { writeFile } from "fs/promises";
 
 import { PatchContext, type PatchDef } from "#api/patches.ts";
@@ -79,13 +79,13 @@ function patchModule(module: HermesModule) {
             let stringIds;
 
             if (def.identifier != null) {
-                identifierId = patcher.findString(def.identifier)?.id;
+                identifierId = patcher.findString(def.identifier)?.index;
                 if (!identifierId) throw Error(f`Couldn't find identifier ${def.identifier}`);
             }
 
             if (def.strings != null) {
                 stringIds = def.strings.map(str => {
-                    const id = patcher.findPartialString(str)?.id;
+                    const id = patcher.findPartialString(str)?.index;
                     if (!id) throw Error(f`Couldn't find string ${str}`);
 
                     return id;
@@ -134,7 +134,7 @@ function patchModule(module: HermesModule) {
         const stringIds = new Set<number>();
         const closureIds = new Set<number>();
 
-        for (const instr of func.bytecode.instructions()) {
+        for (const instr of Instruction.iterate(func.bytecode.opcodes)) {
             opcodes.add(instr.opcode);
             instr.stringOperands()?.forEach(op => stringIds.add(instr.getOperand(op)));
             instr.functionOperands()?.forEach(op => closureIds.add(instr.getOperand(op)));

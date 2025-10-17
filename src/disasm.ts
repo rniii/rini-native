@@ -1,22 +1,24 @@
+import { type HermesModule, Instruction, parseLiterals } from "decompiler";
+import type { MutableFunction } from "decompiler/mutable";
 import { ArgType, Builtin, Opcode, opcodeTypes } from "decompiler/opcodes";
-import { HermesModule, Instruction, type Literal, type ModuleFunction } from "decompiler/types";
+import type { Literal, ModuleFunction } from "decompiler/types";
 
-import { parseLiterals } from "../decompiler/src/literalParser.ts";
 import { Color as C, drawGutter } from "./formatting.ts";
 
 // this is (still) bad
-export function disassemble(module: HermesModule, func: ModuleFunction, code = func.bytecode) {
+export function disassemble(module: HermesModule, func: ModuleFunction) {
     const header = func.header;
+    const bc = func.bytecode.opcodes;
 
-    const name = module.strings.get(header.functionName).contents || "(anonymous)";
-    const addr = `[${formatAddr(code.bytes.byteOffset)}]`;
+    const name = module.strings.get(header.functionName) || "(anonymous)";
+    const addr = `[${formatAddr(bc.byteOffset)}]`;
 
     let src = `#${func.id} ${C.Cyan}${name} ${C.Green}${addr}${C.Reset}\n`;
 
     const addr2line: number[] = [];
     const jumps = new Map<number, number>();
 
-    code.instructions().forEach((instr, i) => {
+    Instruction.iterate(bc).forEach((instr, i) => {
         addr2line[instr.ip] = i;
 
         const types = opcodeTypes[instr.opcode];
@@ -30,7 +32,7 @@ export function disassemble(module: HermesModule, func: ModuleFunction, code = f
     const pointers = Array.from(jumps, ([from, to]) => ({ from: addr2line[from], to: addr2line[to] }));
     const gutter = drawGutter(instrCount, pointers, { colors: true, curved: true });
 
-    code.instructions().forEach((instr, i) => {
+    Instruction.iterate(bc).forEach((instr, i) => {
         try {
             var { name, args, notes } = disassembleInstruction(module, func, instr);
         } catch (error) {
@@ -67,13 +69,13 @@ function disassembleInstruction(module: HermesModule, func: ModuleFunction, inst
         }
         if (instr.stringOperands()?.includes(arg)) {
             notes.push(`str=$${value}`);
-            return JSON.stringify(module.strings.get(value).contents);
+            return JSON.stringify(module.strings.get(value));
         }
         if (instr.functionOperands()?.includes(arg)) {
             const { header, bytecode } = module.functions[value];
 
-            notes.push(`func=#${value} [${formatAddr(bytecode.bytes.byteOffset)}]`);
-            return module.strings.get(header.functionName).contents || "(anonymous)";
+            notes.push(`func=#${value} [${formatAddr(bytecode.opcodes.byteOffset)}]`);
+            return module.strings.get(header.functionName) || "(anonymous)";
         }
         if (instr.bigintOperands()?.includes(arg)) {
             return `${module.bigInts.get(value)}n`;

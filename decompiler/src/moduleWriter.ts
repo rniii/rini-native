@@ -8,8 +8,8 @@ import {
     stringKind,
     stringTableEntry,
 } from "./bitfields.ts";
-import { type Header, HERMES_SIGNATURE, HERMES_VERSION, segmentModule } from "./module.ts";
-import { type HermesModule, ModuleBytecode } from "./types.ts";
+import type { ModuleBytecode } from "./function.ts";
+import { type Header, HERMES_SIGNATURE, HERMES_VERSION, HermesModule, segmentModule } from "./module.ts";
 
 export function writeHermesModule(module: HermesModule) {
     const header: Header = {
@@ -46,7 +46,7 @@ export function writeHermesModule(module: HermesModule) {
     for (const bytecode of module.bytecode) {
         bcMap.set(bytecode, offset);
 
-        offset += bytecode.bytes.byteLength;
+        offset += bytecode.opcodes.byteLength;
         if (bytecode.jumpTables) {
             offset = padSize(offset);
             offset += bytecode.jumpTables.byteLength;
@@ -56,7 +56,7 @@ export function writeHermesModule(module: HermesModule) {
     const funcHeaders: FunctionHeader[] = module.functions.map(func => ({
         ...func.header,
         offset: bcMap.get(func.bytecode)!,
-        bytecodeSizeInBytes: func.bytecode.bytes.byteLength,
+        bytecodeSizeInBytes: func.bytecode.opcodes.byteLength,
         infoOffset: 0,
         hasExceptionHandler: +!!func.exceptionHandlers,
         hasDebugInfo: +!!func.debugOffsets,
@@ -130,8 +130,8 @@ export function writeHermesModule(module: HermesModule) {
     }
 
     for (let [bytecode, offset] of bcMap) {
-        data.set(bytecode.bytes, offset);
-        offset += bytecode.bytes.byteLength;
+        data.set(bytecode.opcodes, offset);
+        offset += bytecode.opcodes.byteLength;
 
         if (bytecode.jumpTables) {
             offset = padSize(offset);

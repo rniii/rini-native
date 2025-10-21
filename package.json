@@ -8,7 +8,8 @@
         "test": "node ./test/index.ts",
         "lint": "eslint",
         "start": "node ./src/patcher.ts",
-        "extract": "node ./scripts/extract.ts",
+        "extract:android": "node ./scripts/extract.ts android",
+        "extract:ios": "node ./scripts/extract.ts ios",
         "disasm": "node ./scripts/disasm.ts"
     },
     "devDependencies": {

@@ -10,6 +10,8 @@
         "start": "node ./src/patcher.ts",
         "extract:android": "node ./scripts/extract.ts android",
         "extract:ios": "node ./scripts/extract.ts ios",
+        "download:android": "node ./scripts/download.ts android",
+        "download:ios": "node ./scripts/download.ts ios",
         "disasm": "node ./scripts/disasm.ts"
     },
     "devDependencies": {
